@@ -282,6 +282,26 @@ table.dt tbody tr:hover td{background:#fafbfc;}
   .auth-right{padding:36px 26px;border-radius:20px;}
   .auth-wrap{border-radius:20px;}
 }
+
+/* ============================
+   ROLE TABS (Login)
+============================ */
+.role-tab{flex:1;padding:10px;border:none;background:transparent;border-radius:8px;color:var(--muted);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;}
+.role-tab.active{background:#fff;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.1);}
+
+/* ============================
+   PIN PAD
+============================ */
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .2s;}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);transform:scale(1.1);}
+.pin-dot.error{background:var(--red);border-color:var(--red);animation:shake .3s ease;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px;}
+.pin-key{padding:16px;border:1.5px solid var(--border);border-radius:12px;background:#fff;color:var(--text);font-size:20px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s;line-height:1;}
+.pin-key:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
+.pin-key:active{transform:scale(.93);background:var(--accent);color:#fff;}
+.pin-clear{color:var(--amber);border-color:var(--amber-light);background:var(--amber-light);}
+.pin-del{color:var(--muted);}
 </style>
 </head>
 <body>
@@ -299,25 +319,63 @@ table.dt tbody tr:hover td{background:#fafbfc;}
     <div class="auth-left">
       <div>
         <div class="auth-brand">HR<span>Core</span></div>
-        <p class="auth-tagline">Complete HR & Staff Management for modern organisations.</p>
+        <p class="auth-tagline">Complete HR &amp; Staff Management for modern organisations.</p>
       </div>
       <div class="auth-features">
-        <div class="auth-feat"><div class="auth-feat-icon">👥</div><span>Employee Management</span></div>
-        <div class="auth-feat"><div class="auth-feat-icon">⏱</div><span>Attendance Tracking & GPS</span></div>
-        <div class="auth-feat"><div class="auth-feat-icon">📋</div><span>Leave Management</span></div>
-        <div class="auth-feat"><div class="auth-feat-icon">📊</div><span>Reports & Analytics</span></div>
+        <div class="auth-feat"><div class="auth-feat-icon">&#128101;</div><span>Employee Management</span></div>
+        <div class="auth-feat"><div class="auth-feat-icon">&#9201;</div><span>Attendance Tracking &amp; GPS</span></div>
+        <div class="auth-feat"><div class="auth-feat-icon">&#128203;</div><span>Leave Management</span></div>
+        <div class="auth-feat"><div class="auth-feat-icon">&#128202;</div><span>Reports &amp; Analytics</span></div>
       </div>
     </div>
     <div class="auth-right">
       <div class="auth-heading">Welcome back</div>
-      <div class="auth-sub">Sign in to your HRCore account</div>
-      <div class="field"><label>Email Address</label><input type="email" id="loginEmail" placeholder="you@company.com"/></div>
-      <div class="field"><label>Password</label><input type="password" id="loginPassword" placeholder="Enter your password"/></div>
-      <button class="btn btn-primary btn-full btn-lg" onclick="handleLogin()" id="loginBtn">Sign In</button>
-      <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:18px;">Enter your email and password to access the system.</p>
+      <div class="auth-sub" id="authSub">Enter your 4-digit PIN to sign in</div>
+
+      <!-- Role selector tabs -->
+      <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg);border-radius:10px;padding:4px;">
+        <button class="role-tab active" id="tabAdmin"    onclick="setLoginRole('admin')">&#128272; Admin / HR</button>
+        <button class="role-tab"        id="tabEmp"      onclick="setLoginRole('employee')">&#128100; Employee</button>
+      </div>
+
+      <!-- Employee email row (only shown for employee role) -->
+      <div class="field hidden" id="loginEmailWrap">
+        <label>Your Email Address</label>
+        <input type="email" id="loginEmail" placeholder="your@email.com"/>
+      </div>
+
+      <!-- PIN dots display -->
+      <div style="display:flex;gap:12px;justify-content:center;margin-bottom:18px;" id="pinDots">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+
+      <!-- PIN keypad -->
+      <div class="pin-pad">
+        <button class="pin-key" onclick="pinKey('1')">1</button>
+        <button class="pin-key" onclick="pinKey('2')">2</button>
+        <button class="pin-key" onclick="pinKey('3')">3</button>
+        <button class="pin-key" onclick="pinKey('4')">4</button>
+        <button class="pin-key" onclick="pinKey('5')">5</button>
+        <button class="pin-key" onclick="pinKey('6')">6</button>
+        <button class="pin-key" onclick="pinKey('7')">7</button>
+        <button class="pin-key" onclick="pinKey('8')">8</button>
+        <button class="pin-key" onclick="pinKey('9')">9</button>
+        <button class="pin-key pin-clear" onclick="pinClear()">C</button>
+        <button class="pin-key" onclick="pinKey('0')">0</button>
+        <button class="pin-key pin-del" onclick="pinDel()">&#9003;</button>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button class="btn btn-primary btn-full btn-lg" onclick="handleLogin()" id="loginBtn">Sign In</button>
+      </div>
+      <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:12px;" id="loginHint">Admin PIN is set in the source code</p>
     </div>
   </div>
 </div>
+
 
 <!-- ============================
      APP SHELL
@@ -488,7 +546,14 @@ const firebaseConfig = {
 /* =====================================
    ADMIN EMAILS — Add all admin emails
 ===================================== */
-const ADMIN_EMAILS = ["oladejiridwanopeyemi@gmail.com"];
+/* =====================================
+   ADMIN PIN — Change this to your preferred 4-digit PIN
+   Employee PINs are set per-user in their Firestore 'staff' doc (field: pin)
+===================================== */
+const ADMIN_PIN   = "1234";  // ← Change this to your preferred PIN
+const ADMIN_EMAIL = "oladejiridwanopeyemi@gmail.com"; // used for Firebase auth internally
+const ADMIN_PASS  = "HRCore_Admin_2024!"; // internal Firebase password (not shown to user)
+const ADMIN_EMAILS = [ADMIN_EMAIL];
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -560,31 +625,58 @@ async function loadStaffProfile() {
 }
 
 async function handleLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass  = document.getElementById('loginPassword').value;
-  const btn   = document.getElementById('loginBtn');
-  if (!email || !pass) { toast('Enter email and password.','error'); return; }
-  btn.textContent = 'Signing in…'; btn.disabled = true;
+  const btn  = document.getElementById('loginBtn');
+  const role = window._loginRole || 'admin';
+  const pin  = window._pinValue  || '';
+
+  if (pin.length < 4) { shakePin(); toast('Enter all 4 digits.','error'); return; }
+
+  btn.disabled = true; btn.textContent = 'Signing in…';
+
   try {
-    await auth.signInWithEmailAndPassword(email, pass);
-    toast('Welcome back!','success');
-  } catch(e) {
-    // Auto-register admin account on very first login
-    if ((e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') && ADMIN_EMAILS.includes(email)) {
+    if (role === 'admin') {
+      // ── Admin: check PIN locally, then sign into Firebase silently
+      if (pin !== ADMIN_PIN) { shakePin(); toast('Incorrect PIN. Try again.','error'); pinClear(); btn.disabled=false; btn.textContent='Sign In'; return; }
       try {
-        btn.textContent = 'Setting up account…';
-        await auth.createUserWithEmailAndPassword(email, pass);
-        toast('Admin account created. Welcome!','success');
-      } catch(e2) {
-        toast(authErr(e2.code),'error');
-        btn.textContent = 'Sign In'; btn.disabled = false;
+        await auth.signInWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS);
+      } catch(e) {
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+          await auth.createUserWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS);
+        } else { throw e; }
       }
+      toast('Welcome, Admin!', 'success');
+
     } else {
-      toast(authErr(e.code),'error');
-      btn.textContent = 'Sign In'; btn.disabled = false;
+      // ── Employee: lookup by email, verify pin field in Firestore
+      const email = (document.getElementById('loginEmail')?.value||'').trim().toLowerCase();
+      if (!email) { toast('Enter your email address.','error'); btn.disabled=false; btn.textContent='Sign In'; return; }
+
+      const snap = await db.collection('staff').where('email','==',email).limit(1).get();
+      if (snap.empty) { shakePin(); toast('No account found for this email.','error'); pinClear(); btn.disabled=false; btn.textContent='Sign In'; return; }
+
+      const empData = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      const empPin  = empData.pin || '0000';
+
+      if (pin !== empPin) { shakePin(); toast('Incorrect PIN. Try again.','error'); pinClear(); btn.disabled=false; btn.textContent='Sign In'; return; }
+
+      // Sign into Firebase with employee's stored auth credentials
+      const empEmail = empData.email;
+      const empPass  = empData.authPass || ('Emp_' + empData.id.slice(0,8));
+      try {
+        await auth.signInWithEmailAndPassword(empEmail, empPass);
+      } catch(e) {
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+          await auth.createUserWithEmailAndPassword(empEmail, empPass);
+        } else { throw e; }
+      }
+      toast('Welcome back!', 'success');
     }
+  } catch(err) {
+    console.error(err);
+    toast('Sign in failed: ' + err.message, 'error');
+    btn.disabled=false; btn.textContent='Sign In';
   }
-}
+}}
 
 async function handleLogout() {
   await auth.signOut();
@@ -1425,6 +1517,52 @@ function _reAuthConfirm() {
   if (!pass) { toast('Please enter your password.','error'); return; }
   closeModal('reAuthModal');
   if (_reAuthResolve) _reAuthResolve(pass);
+}
+
+
+/* =====================================
+   PIN KEYPAD LOGIC
+===================================== */
+window._pinValue  = '';
+window._loginRole = 'admin';
+
+function setLoginRole(role) {
+  window._loginRole = role;
+  window._pinValue  = '';
+  updatePinDots();
+  document.getElementById('tabAdmin').classList.toggle('active', role==='admin');
+  document.getElementById('tabEmp').classList.toggle('active',   role==='employee');
+  const emailWrap = document.getElementById('loginEmailWrap');
+  if (emailWrap) emailWrap.classList.toggle('hidden', role==='admin');
+  const hint = document.getElementById('loginHint');
+  if (hint) hint.textContent = role==='admin' ? 'Use your 4-digit admin PIN' : 'Enter your email and employee PIN';
+}
+
+function pinKey(digit) {
+  if (window._pinValue.length >= 4) return;
+  window._pinValue += digit;
+  updatePinDots();
+  if (window._pinValue.length === 4) setTimeout(handleLogin, 180);
+}
+function pinDel() {
+  window._pinValue = window._pinValue.slice(0,-1);
+  updatePinDots();
+}
+function pinClear() {
+  window._pinValue = '';
+  updatePinDots();
+}
+function updatePinDots() {
+  for (let i=0;i<4;i++) {
+    const dot = document.getElementById('pd'+i);
+    if (dot) dot.classList.toggle('filled', i < window._pinValue.length);
+  }
+}
+function shakePin() {
+  for (let i=0;i<4;i++) {
+    const dot=document.getElementById('pd'+i);
+    if (dot){dot.classList.add('error');setTimeout(()=>dot.classList.remove('error'),400);}
+  }
 }
 
 </script>
