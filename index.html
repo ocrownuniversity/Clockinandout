@@ -314,7 +314,7 @@ table.dt tbody tr:hover td{background:#fafbfc;}
       <div class="field"><label>Email Address</label><input type="email" id="loginEmail" placeholder="you@company.com"/></div>
       <div class="field"><label>Password</label><input type="password" id="loginPassword" placeholder="Enter your password"/></div>
       <button class="btn btn-primary btn-full btn-lg" onclick="handleLogin()" id="loginBtn">Sign In</button>
-      <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:18px;">Contact your HR Administrator for login credentials.</p>
+      <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:18px;">Enter your email and password to access the system.</p>
     </div>
   </div>
 </div>
@@ -488,7 +488,7 @@ const firebaseConfig = {
 /* =====================================
    ADMIN EMAILS — Add all admin emails
 ===================================== */
-const ADMIN_EMAILS = ["admin@company.com"]; // ← Update this
+const ADMIN_EMAILS = ["oladejiridwanopeyemi@gmail.com"];
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -531,19 +531,32 @@ async function loadStaffProfile() {
       staffProfile = { id: doc.id, ...doc.data() };
       currentRole  = staffProfile.role || 'employee';
     } else {
-      currentRole  = ADMIN_EMAILS.includes(currentUser.email) ? 'admin' : 'employee';
+      // Auto-create profile for admin on first login
+      currentRole = ADMIN_EMAILS.includes(currentUser.email) ? 'admin' : 'employee';
+      const namePart = currentUser.email.split('@')[0];
       staffProfile = {
-        id: currentUser.uid,
-        firstName: (currentUser.displayName||currentUser.email.split('@')[0]),
-        lastName: '',
-        email: currentUser.email,
-        role: currentRole,
-        department: 'N/A',
-        position: currentRole === 'admin' ? 'HR Administrator' : 'Staff',
-        employeeID: currentUser.uid.slice(0,8).toUpperCase(),
+        id:         currentUser.uid,
+        firstName:  currentUser.displayName ? currentUser.displayName.split(' ')[0] : namePart,
+        lastName:   currentUser.displayName ? (currentUser.displayName.split(' ')[1]||'') : '',
+        email:      currentUser.email,
+        role:       currentRole,
+        department: currentRole === 'admin' ? 'Management' : 'N/A',
+        position:   currentRole === 'admin' ? 'HR Administrator' : 'Staff',
+        employeeID: 'EMP-' + currentUser.uid.slice(0,6).toUpperCase(),
+        uid:        currentUser.uid,
       };
+      // Save to Firestore so profile persists
+      try {
+        await db.collection('staff').doc(currentUser.uid).set({
+          ...staffProfile,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch(_) {}
     }
-  } catch(e) { currentRole = 'employee'; }
+  } catch(e) {
+    console.error('Profile load error:', e);
+    currentRole = 'employee';
+  }
 }
 
 async function handleLogin() {
@@ -556,8 +569,20 @@ async function handleLogin() {
     await auth.signInWithEmailAndPassword(email, pass);
     toast('Welcome back!','success');
   } catch(e) {
-    toast(authErr(e.code),'error');
-    btn.textContent = 'Sign In'; btn.disabled = false;
+    // Auto-register admin account on very first login
+    if ((e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') && ADMIN_EMAILS.includes(email)) {
+      try {
+        btn.textContent = 'Setting up account…';
+        await auth.createUserWithEmailAndPassword(email, pass);
+        toast('Admin account created. Welcome!','success');
+      } catch(e2) {
+        toast(authErr(e2.code),'error');
+        btn.textContent = 'Sign In'; btn.disabled = false;
+      }
+    } else {
+      toast(authErr(e.code),'error');
+      btn.textContent = 'Sign In'; btn.disabled = false;
+    }
   }
 }
 
@@ -1377,6 +1402,55 @@ function skeletons(n){return Array(n).fill(`<div class="stat-card"><div style="h
 @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
 
 document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin();});
+
+/* =====================================
+   RE-AUTH DIALOG (promise-based)
+===================================== */
+let _reAuthResolve = null;
+let _reAuthReject  = null;
+
+function showReAuthDialog() {
+  return new Promise((resolve, reject) => {
+    _reAuthResolve = resolve;
+    _reAuthReject  = () => { closeModal('reAuthModal'); resolve(null); };
+    document.getElementById('reAuthPass').value = '';
+    openModal('reAuthModal');
+    // Allow Enter key to confirm
+    document.getElementById('reAuthPass').onkeydown = (e) => { if (e.key === 'Enter') _reAuthConfirm(); };
+  });
+}
+
+function _reAuthConfirm() {
+  const pass = document.getElementById('reAuthPass').value;
+  if (!pass) { toast('Please enter your password.','error'); return; }
+  closeModal('reAuthModal');
+  if (_reAuthResolve) _reAuthResolve(pass);
+}
+
 </script>
+
+<!-- Re-Auth Modal (for creating new staff accounts) -->
+<div class="modal-overlay" id="reAuthModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">Confirm Your Identity</div>
+      <button class="modal-close" onclick="_reAuthReject()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--muted);margin-bottom:18px;line-height:1.6;">
+        To create a new staff account, please re-enter your admin password to confirm.
+      </p>
+      <div class="field">
+        <label>Your Admin Password</label>
+        <input type="password" id="reAuthPass" placeholder="Enter your password"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="_reAuthReject()">Cancel</button>
+      <button class="btn btn-primary" onclick="_reAuthConfirm()">Confirm</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
