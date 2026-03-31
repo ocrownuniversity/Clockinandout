@@ -530,9 +530,9 @@ table.dt tbody tr:hover td{background:#fafbfc;}
      JAVASCRIPT
 ============================ -->
 <script>
-/* =====================================
+/* ============================================================
    FIREBASE CONFIG
-===================================== */
+============================================================ */
 const firebaseConfig = {
   apiKey:            "AIzaSyAYXG-6gFJ_QMZT__7A32Kogx4uVBMR1hc",
   authDomain:        "eduportal-dc55b.firebaseapp.com",
@@ -543,125 +543,137 @@ const firebaseConfig = {
   appId:             "1:168703430994:web:bad5baccd088d6ea9faa8b"
 };
 
-/* =====================================
-   ADMIN EMAILS — Add all admin emails
-===================================== */
-/* =====================================
-   ADMIN PIN — Change this to your preferred 4-digit PIN
-   Employee PINs are set per-user in their Firestore 'staff' doc (field: pin)
-===================================== */
-const ADMIN_PIN   = "1234";  // ← Change this to your preferred PIN
-const ADMIN_EMAIL = "oladejiridwanopeyemi@gmail.com"; // used for Firebase auth internally
-const ADMIN_PASS  = "HRCore_Admin_2024!"; // internal Firebase password (not shown to user)
+/* ============================================================
+   ADMIN SETTINGS
+   ADMIN_PIN  : 4-digit PIN you type on the keypad to sign in as admin
+   ADMIN_EMAIL: your email (used silently for Firebase Auth)
+   ADMIN_PASS : internal Firebase password — not shown to any user
+============================================================ */
+const ADMIN_PIN   = "1234";
+const ADMIN_EMAIL = "oladejiridwanopeyemi@gmail.com";
+const ADMIN_PASS  = "HRCore_Admin_2024!";
 const ADMIN_EMAILS = [ADMIN_EMAIL];
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-/* =====================================
-   STATE
-===================================== */
-let currentUser   = null;
-let currentRole   = 'employee';
-let staffProfile  = null;
-let allStaff      = [];
-let allAttendance = [];
-let allLeaves     = [];
-let notifications = [];
-let gpsCoords     = null;
-let unsubArr      = [];
-let clockTimer    = null;
+/* ============================================================
+   APP STATE
+============================================================ */
+var currentUser   = null;
+var currentRole   = 'employee';
+var staffProfile  = null;
+var allStaff      = [];
+var allAttendance = [];
+var allLeaves     = [];
+var notifications = [];
+var gpsCoords     = null;
+var unsubArr      = [];
+var clockTimer    = null;
+var _pinValue     = '';
+var _loginRole    = 'admin';
+var _reAuthResolve = null;
 
-/* =====================================
-   AUTH LISTENER
-===================================== */
-auth.onAuthStateChanged(async user => {
-  if (user) {
-    currentUser = user;
-    await loadStaffProfile();
-    showApp();
-  } else {
-    currentUser = null; staffProfile = null;
-    unsubArr.forEach(u => u()); unsubArr = [];
-    if (clockTimer) clearInterval(clockTimer);
-    showAuth();
-  }
-});
+/* ============================================================
+   PIN KEYPAD  — must be at top so onclick works immediately
+============================================================ */
+function pinKey(digit) {
+  if (_pinValue.length >= 4) return;
+  _pinValue += digit;
+  updatePinDots();
+  if (_pinValue.length === 4) setTimeout(handleLogin, 200);
+}
 
-async function loadStaffProfile() {
-  try {
-    const doc = await db.collection('staff').doc(currentUser.uid).get();
-    if (doc.exists) {
-      staffProfile = { id: doc.id, ...doc.data() };
-      currentRole  = staffProfile.role || 'employee';
-    } else {
-      // Auto-create profile for admin on first login
-      currentRole = ADMIN_EMAILS.includes(currentUser.email) ? 'admin' : 'employee';
-      const namePart = currentUser.email.split('@')[0];
-      staffProfile = {
-        id:         currentUser.uid,
-        firstName:  currentUser.displayName ? currentUser.displayName.split(' ')[0] : namePart,
-        lastName:   currentUser.displayName ? (currentUser.displayName.split(' ')[1]||'') : '',
-        email:      currentUser.email,
-        role:       currentRole,
-        department: currentRole === 'admin' ? 'Management' : 'N/A',
-        position:   currentRole === 'admin' ? 'HR Administrator' : 'Staff',
-        employeeID: 'EMP-' + currentUser.uid.slice(0,6).toUpperCase(),
-        uid:        currentUser.uid,
-      };
-      // Save to Firestore so profile persists
-      try {
-        await db.collection('staff').doc(currentUser.uid).set({
-          ...staffProfile,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      } catch(_) {}
-    }
-  } catch(e) {
-    console.error('Profile load error:', e);
-    currentRole = 'employee';
+function pinDel() {
+  _pinValue = _pinValue.slice(0, -1);
+  updatePinDots();
+}
+
+function pinClear() {
+  _pinValue = '';
+  updatePinDots();
+}
+
+function updatePinDots() {
+  for (var i = 0; i < 4; i++) {
+    var dot = document.getElementById('pd' + i);
+    if (dot) dot.classList.toggle('filled', i < _pinValue.length);
   }
 }
 
+function shakePin() {
+  for (var i = 0; i < 4; i++) {
+    (function(dot){ if(!dot) return; dot.classList.add('error'); setTimeout(function(){ dot.classList.remove('error'); }, 400); })(document.getElementById('pd'+i));
+  }
+  _pinValue = '';
+  setTimeout(updatePinDots, 420);
+}
+
+function setLoginRole(role) {
+  _loginRole = role;
+  _pinValue  = '';
+  updatePinDots();
+  var tabA = document.getElementById('tabAdmin');
+  var tabE = document.getElementById('tabEmp');
+  if (tabA) tabA.classList.toggle('active', role === 'admin');
+  if (tabE) tabE.classList.toggle('active', role === 'employee');
+  var emailWrap = document.getElementById('loginEmailWrap');
+  if (emailWrap) emailWrap.classList.toggle('hidden', role === 'admin');
+  var hint = document.getElementById('loginHint');
+  if (hint) hint.textContent = role === 'admin' ? 'Use your 4-digit admin PIN' : 'Enter your email, then your 4-digit PIN';
+}
+
+/* ============================================================
+   LOGIN
+============================================================ */
 async function handleLogin() {
-  const btn  = document.getElementById('loginBtn');
-  const role = window._loginRole || 'admin';
-  const pin  = window._pinValue  || '';
+  var btn = document.getElementById('loginBtn');
+  if (!btn || btn.disabled) return;
 
-  if (pin.length < 4) { shakePin(); toast('Enter all 4 digits.','error'); return; }
+  if (_pinValue.length < 4) { shakePin(); toast('Enter all 4 digits.', 'error'); return; }
 
-  btn.disabled = true; btn.textContent = 'Signing in…';
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
 
   try {
-    if (role === 'admin') {
-      // ── Admin: check PIN locally, then sign into Firebase silently
-      if (pin !== ADMIN_PIN) { shakePin(); toast('Incorrect PIN. Try again.','error'); pinClear(); btn.disabled=false; btn.textContent='Sign In'; return; }
+    if (_loginRole === 'admin') {
+      if (_pinValue !== ADMIN_PIN) {
+        shakePin();
+        toast('Incorrect PIN. Try again.', 'error');
+        btn.disabled = false; btn.textContent = 'Sign In';
+        return;
+      }
+      // Silent Firebase sign-in
       try {
         await auth.signInWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS);
       } catch(e) {
-        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+        if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
           await auth.createUserWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS);
         } else { throw e; }
       }
       toast('Welcome, Admin!', 'success');
 
     } else {
-      // ── Employee: lookup by email, verify pin field in Firestore
-      const email = (document.getElementById('loginEmail')?.value||'').trim().toLowerCase();
-      if (!email) { toast('Enter your email address.','error'); btn.disabled=false; btn.textContent='Sign In'; return; }
+      // Employee login
+      var email = (document.getElementById('loginEmail') ? document.getElementById('loginEmail').value : '').trim().toLowerCase();
+      if (!email) { toast('Enter your email address.', 'error'); btn.disabled=false; btn.textContent='Sign In'; return; }
 
-      const snap = await db.collection('staff').where('email','==',email).limit(1).get();
-      if (snap.empty) { shakePin(); toast('No account found for this email.','error'); pinClear(); btn.disabled=false; btn.textContent='Sign In'; return; }
+      var snap = await db.collection('staff').where('email', '==', email).limit(1).get();
+      if (snap.empty) { shakePin(); toast('No account found for this email.', 'error'); btn.disabled=false; btn.textContent='Sign In'; return; }
 
-      const empData = { id: snap.docs[0].id, ...snap.docs[0].data() };
-      const empPin  = empData.pin || '0000';
+      var empData = Object.assign({ id: snap.docs[0].id }, snap.docs[0].data());
+      var empPin  = empData.pin || '0000';
 
-      if (pin !== empPin) { shakePin(); toast('Incorrect PIN. Try again.','error'); pinClear(); btn.disabled=false; btn.textContent='Sign In'; return; }
+      if (_pinValue !== empPin) {
+        shakePin();
+        toast('Incorrect PIN. Try again.', 'error');
+        btn.disabled=false; btn.textContent='Sign In';
+        return;
+      }
 
-      // Sign into Firebase with employee's stored auth credentials
-      const empEmail = empData.email;
-      const empPass  = empData.authPass || ('Emp_' + empData.id.slice(0,8));
+      var empEmail = empData.email;
+      var empPass  = empData.authPass || ('HRCEmp_' + empData.id.slice(0,8));
       try {
         await auth.signInWithEmailAndPassword(empEmail, empPass);
       } catch(e) {
@@ -672,48 +684,86 @@ async function handleLogin() {
       toast('Welcome back!', 'success');
     }
   } catch(err) {
-    console.error(err);
-    toast('Sign in failed: ' + err.message, 'error');
-    btn.disabled=false; btn.textContent='Sign In';
+    console.error('Login error:', err);
+    toast('Sign in failed: ' + (err.message || err.code), 'error');
+    btn.disabled = false; btn.textContent = 'Sign In';
   }
-}}
+}
 
 async function handleLogout() {
   await auth.signOut();
-  toast('Signed out.','info');
+  _pinValue = ''; updatePinDots();
+  toast('Signed out.', 'info');
 }
 
-function authErr(c){
-  return {
-    'auth/user-not-found':'No account found with this email.',
-    'auth/wrong-password':'Incorrect password.',
-    'auth/invalid-email':'Invalid email address.',
-    'auth/too-many-requests':'Too many attempts. Try later.',
-    'auth/invalid-credential':'Invalid email or password.',
-  }[c]||'Login failed. Please try again.';
+/* ============================================================
+   FIREBASE AUTH LISTENER
+============================================================ */
+auth.onAuthStateChanged(async function(user) {
+  if (user) {
+    currentUser = user;
+    await loadStaffProfile();
+    showApp();
+  } else {
+    currentUser = null; staffProfile = null;
+    unsubArr.forEach(function(u){ u(); }); unsubArr = [];
+    if (clockTimer) clearInterval(clockTimer);
+    showAuth();
+  }
+});
+
+async function loadStaffProfile() {
+  try {
+    var doc = await db.collection('staff').doc(currentUser.uid).get();
+    if (doc.exists) {
+      staffProfile = Object.assign({ id: doc.id }, doc.data());
+      currentRole  = staffProfile.role || 'employee';
+    } else {
+      currentRole  = (currentUser.email === ADMIN_EMAIL) ? 'admin' : 'employee';
+      staffProfile = {
+        id:         currentUser.uid,
+        firstName:  currentUser.displayName ? currentUser.displayName.split(' ')[0] : currentUser.email.split('@')[0],
+        lastName:   currentUser.displayName ? (currentUser.displayName.split(' ')[1] || '') : '',
+        email:      currentUser.email,
+        role:       currentRole,
+        department: currentRole === 'admin' ? 'Management' : 'N/A',
+        position:   currentRole === 'admin' ? 'HR Administrator' : 'Staff',
+        employeeID: 'EMP-' + currentUser.uid.slice(0,6).toUpperCase(),
+        uid:        currentUser.uid,
+      };
+      try {
+        await db.collection('staff').doc(currentUser.uid).set(Object.assign({}, staffProfile, {
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }));
+      } catch(_) {}
+    }
+  } catch(e) {
+    console.error('Profile error:', e);
+    currentRole = 'employee';
+  }
 }
 
-/* =====================================
-   SHOW/HIDE SCREENS
-===================================== */
+/* ============================================================
+   SHOW / HIDE SCREENS
+============================================================ */
 function showAuth() {
   document.getElementById('authScreen').classList.remove('hidden');
   document.getElementById('appShell').classList.add('hidden');
 }
+
 function showApp() {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('appShell').classList.remove('hidden');
   buildSidebar();
   getGPS();
   loadNotifications();
-  const startPage = (currentRole==='employee') ? 'my-attendance' : 'hr-dashboard';
-  navigateTo(startPage);
+  navigateTo(currentRole === 'employee' ? 'my-attendance' : 'hr-dashboard');
 }
 
-/* =====================================
+/* ============================================================
    SIDEBAR
-===================================== */
-const NAV = {
+============================================================ */
+var NAV = {
   admin: [
     {s:'Overview'},{id:'hr-dashboard',icon:'📊',label:'HR Dashboard'},
     {s:'Staff'},{id:'employees',icon:'👥',label:'Employees'},{id:'attendance',icon:'⏱',label:'Attendance'},
@@ -729,37 +779,37 @@ const NAV = {
     {s:'My Work'},{id:'my-attendance',icon:'⏱',label:'My Attendance'},{id:'my-leaves',icon:'🌴',label:'My Leaves'},
   ],
 };
-const PAGE_TITLES = {'hr-dashboard':'HR Dashboard','employees':'Employee Management','attendance':'Attendance Records','leaves-admin':'Leave Requests','reports':'Reports','my-attendance':'My Attendance','my-leaves':'My Leaves'};
+var PAGE_TITLES = {'hr-dashboard':'HR Dashboard','employees':'Employee Management','attendance':'Attendance Records','leaves-admin':'Leave Requests','reports':'Reports','my-attendance':'My Attendance','my-leaves':'My Leaves'};
 
 function buildSidebar() {
-  const items = NAV[currentRole]||NAV.employee;
-  document.getElementById('sidebarNav').innerHTML = items.map(item => {
-    if (item.s) return `<div class="nav-section">${item.s}</div>`;
-    return `<div class="nav-item" id="nav-${item.id}" onclick="navigateTo('${item.id}')">
-      <span class="nav-icon">${item.icon}</span><span>${item.label}</span>
-      ${item.badge ? `<span class="nav-badge hidden" id="badge-${item.badge}">0</span>` : ''}
-    </div>`;
+  var items = NAV[currentRole] || NAV.employee;
+  document.getElementById('sidebarNav').innerHTML = items.map(function(item) {
+    if (item.s) return '<div class="nav-section">'+item.s+'</div>';
+    return '<div class="nav-item" id="nav-'+item.id+'" onclick="navigateTo(''+item.id+'')">'
+      +'<span class="nav-icon">'+item.icon+'</span><span>'+item.label+'</span>'
+      +(item.badge ? '<span class="nav-badge hidden" id="badge-'+item.badge+'">0</span>' : '')
+      +'</div>';
   }).join('');
-  document.getElementById('sidebarName').textContent  = fullName(staffProfile)||'User';
+  document.getElementById('sidebarName').textContent  = fullName(staffProfile) || 'User';
   document.getElementById('sidebarEmail').textContent = currentUser.email;
   document.getElementById('sidebarAvatar').textContent = initials(staffProfile);
   document.getElementById('sidebarRole').textContent  = roleLbl(currentRole);
 }
 
-function roleLbl(r){return{admin:'Admin / HR',manager:'Manager',employee:'Employee'}[r]||r;}
+function roleLbl(r){ return {admin:'Admin / HR', manager:'Manager', employee:'Employee'}[r] || r; }
 
-/* =====================================
+/* ============================================================
    NAVIGATION
-===================================== */
+============================================================ */
 function navigateTo(page) {
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const el = document.getElementById('nav-'+page);
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  var el = document.getElementById('nav-' + page);
   if (el) el.classList.add('active');
-  document.getElementById('topbarTitle').textContent = PAGE_TITLES[page]||page;
+  document.getElementById('topbarTitle').textContent = PAGE_TITLES[page] || page;
   closeSidebar();
-  const pc = document.getElementById('pageContent');
+  var pc = document.getElementById('pageContent');
   pc.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);">Loading…</div>';
-  ({
+  var pages = {
     'hr-dashboard':  renderHRDashboard,
     'employees':     renderEmployees,
     'attendance':    renderAttendance,
@@ -767,309 +817,282 @@ function navigateTo(page) {
     'reports':       renderReports,
     'my-attendance': renderMyAttendance,
     'my-leaves':     renderMyLeaves,
-  }[page]||function(){pc.innerHTML='<div class="no-data"><p>Page not found.</p></div>';})();
+  };
+  if (pages[page]) pages[page]();
+  else pc.innerHTML = '<div class="no-data"><p>Page not found.</p></div>';
 }
+
 function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('mobileOverlay').classList.add('open'); }
 function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mobileOverlay').classList.remove('open'); }
 
-/* =====================================
+/* ============================================================
    GPS
-===================================== */
+============================================================ */
 function getGPS() {
   if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(p=>{gpsCoords={lat:p.coords.latitude,lng:p.coords.longitude};},(e)=>{},{enableHighAccuracy:true,timeout:8000});
+  navigator.geolocation.getCurrentPosition(function(p){ gpsCoords = {lat:p.coords.latitude, lng:p.coords.longitude}; }, function(){}, {enableHighAccuracy:true,timeout:8000});
 }
 
-/* =====================================
+/* ============================================================
    PAGE: HR DASHBOARD
-===================================== */
+============================================================ */
 async function renderHRDashboard() {
-  const pc    = document.getElementById('pageContent');
-  const today = todayStr();
-  pc.innerHTML = `<div class="page-fade" id="dashPage">
-    <div class="stats-grid" id="dashStats">${skeletons(5)}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;" id="dashLower">
-      <div class="card" style="height:300px;"></div><div class="card" style="height:300px;"></div>
-    </div>
-  </div>`;
+  var pc = document.getElementById('pageContent');
+  var today = todayStr();
+  pc.innerHTML = '<div class="page-fade"><div class="stats-grid" id="dashStats">'+skeletons(5)+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;" id="dashLower">'
+    +'<div class="card" style="min-height:200px;"></div><div class="card" style="min-height:200px;"></div></div></div>';
 
-  const [staffSnap, attSnap, leaveSnap] = await Promise.all([
+  var results = await Promise.all([
     db.collection('staff').get(),
     db.collection('attendance').where('date','==',today).get(),
     db.collection('leaves').where('status','==','pending').get()
   ]);
-
-  const total    = staffSnap.size;
-  const todayAtt = attSnap.docs.map(d=>d.data());
-  const present  = new Set(todayAtt.filter(r=>r.clockIn).map(r=>r.uid)).size;
-  const late     = new Set(todayAtt.filter(r=>r.late).map(r=>r.uid)).size;
-  const pending  = leaveSnap.size;
-  const absent   = Math.max(0, total - present);
-
+  var staffSnap=results[0], attSnap=results[1], leaveSnap=results[2];
+  var total   = staffSnap.size;
+  var todayAtt= attSnap.docs.map(function(d){return d.data();});
+  var presentSet = new Set(todayAtt.filter(function(r){return r.clockIn;}).map(function(r){return r.uid;}));
+  var lateSet    = new Set(todayAtt.filter(function(r){return r.late;}).map(function(r){return r.uid;}));
+  var pending = leaveSnap.size;
+  var absent  = Math.max(0, total - presentSet.size);
   updateBadge('leavePending', pending);
 
-  const [recentAttSnap, recentLvSnap] = await Promise.all([
+  var results2 = await Promise.all([
     db.collection('attendance').where('date','==',today).orderBy('clockIn','desc').limit(8).get(),
-    db.collection('leaves').where('status','==','pending').orderBy('createdAt','desc').limit(6).get()
+    db.collection('leaves').where('status','==','pending').orderBy('createdAt','desc').limit(5).get()
   ]);
-  const recentAtt = recentAttSnap.docs.map(d=>({id:d.id,...d.data()}));
-  const pendingLv = recentLvSnap.docs.map(d=>({id:d.id,...d.data()}));
+  var recentAtt = results2[0].docs.map(function(d){return Object.assign({id:d.id},d.data());});
+  var pendingLv = results2[1].docs.map(function(d){return Object.assign({id:d.id},d.data());});
 
-  document.getElementById('dashStats').innerHTML = `
-    <div class="stat-card c-blue"><div class="stat-icon">👥</div><div class="stat-num blue">${total}</div><div class="stat-label">Total Staff</div></div>
-    <div class="stat-card c-green"><div class="stat-icon">✅</div><div class="stat-num green">${present}</div><div class="stat-label">Present Today</div></div>
-    <div class="stat-card c-red"><div class="stat-icon">❌</div><div class="stat-num red">${absent}</div><div class="stat-label">Absent Today</div></div>
-    <div class="stat-card c-amber"><div class="stat-icon">⏰</div><div class="stat-num amber">${late}</div><div class="stat-label">Late Arrivals</div></div>
-    <div class="stat-card c-purple"><div class="stat-icon">📋</div><div class="stat-num purple">${pending}</div><div class="stat-label">Pending Leaves</div></div>
-  `;
+  document.getElementById('dashStats').innerHTML =
+    '<div class="stat-card c-blue"><div class="stat-icon">&#128101;</div><div class="stat-num blue">'+total+'</div><div class="stat-label">Total Staff</div></div>'
+   +'<div class="stat-card c-green"><div class="stat-icon">&#9989;</div><div class="stat-num green">'+presentSet.size+'</div><div class="stat-label">Present Today</div></div>'
+   +'<div class="stat-card c-red"><div class="stat-icon">&#10060;</div><div class="stat-num red">'+absent+'</div><div class="stat-label">Absent Today</div></div>'
+   +'<div class="stat-card c-amber"><div class="stat-icon">&#9200;</div><div class="stat-num amber">'+lateSet.size+'</div><div class="stat-label">Late Arrivals</div></div>'
+   +'<div class="stat-card c-purple"><div class="stat-icon">&#128203;</div><div class="stat-num purple">'+pending+'</div><div class="stat-label">Pending Leaves</div></div>';
 
-  document.getElementById('dashLower').innerHTML = `
-    <div class="card">
-      <div class="card-header"><div class="card-title">Today's Clock-Ins</div><button class="btn btn-ghost btn-sm" onclick="navigateTo('attendance')">View All</button></div>
-      ${recentAtt.length===0
-        ? `<div class="no-data"><div class="no-data-icon">⏱</div><p>No clock-ins yet today.</p></div>`
-        : `<div class="table-wrap"><table class="dt"><thead><tr><th>Employee</th><th>Clock In</th><th>Status</th></tr></thead><tbody>
-          ${recentAtt.map(r=>`<tr>
-            <td><div style="font-weight:600;font-size:13px;">${r.employeeName||'—'}</div><div style="font-size:11px;color:var(--muted);">${r.department||''}</div></td>
-            <td style="font-size:13px;">${fmtTime(r.clockIn)}</td>
-            <td>${r.late?'<span class="late-tag">LATE</span>':'<span class="badge badge-green">On Time</span>'}</td>
-          </tr>`).join('')}
-        </tbody></table></div>`
-      }
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">Pending Leave Requests</div><button class="btn btn-ghost btn-sm" onclick="navigateTo('leaves-admin')">View All</button></div>
-      <div style="padding:12px;">
-        ${pendingLv.length===0
-          ? `<div class="no-data"><div class="no-data-icon">📋</div><p>No pending requests.</p></div>`
-          : pendingLv.map(l=>`
-            <div class="leave-card">
-              <div class="l-type-icon lt-${l.leaveType}">${leaveEmoji(l.leaveType)}</div>
-              <div class="leave-info">
-                <div class="leave-name">${l.employeeName}</div>
-                <div class="leave-meta">${cap(l.leaveType)} Leave · ${fmtDate(l.startDate)} – ${fmtDate(l.endDate)}</div>
-                <div style="display:flex;gap:6px;margin-top:8px;">
-                  <button class="btn btn-green btn-xs" onclick="handleLeave('${l.id}','approved')">✓ Approve</button>
-                  <button class="btn btn-red btn-xs" onclick="handleLeave('${l.id}','rejected')">✕ Reject</button>
-                </div>
-              </div>
-            </div>`).join('')
-        }
-      </div>
-    </div>
-  `;
+  document.getElementById('dashLower').innerHTML =
+    '<div class="card"><div class="card-header"><div class="card-title">Today's Clock-Ins</div>'
+   +'<button class="btn btn-ghost btn-sm" onclick="navigateTo('attendance')">View All</button></div>'
+   +(recentAtt.length===0
+     ? '<div class="no-data"><div class="no-data-icon">&#9201;</div><p>No clock-ins yet today.</p></div>'
+     : '<div class="table-wrap"><table class="dt"><thead><tr><th>Employee</th><th>Clock In</th><th>Status</th></tr></thead><tbody>'
+       +recentAtt.map(function(r){return '<tr><td><div style="font-weight:600;font-size:13px;">'+( r.employeeName||'—')+'</div>'
+         +'<div style="font-size:11px;color:var(--muted);">'+(r.department||'')+'</div></td>'
+         +'<td style="font-size:13px;">'+fmtTime(r.clockIn)+'</td>'
+         +'<td>'+(r.late?'<span class="late-tag">LATE</span>':'<span class="badge badge-green">On Time</span>')+'</td></tr>';}).join('')
+       +'</tbody></table></div>')
+   +'</div>'
+   +'<div class="card"><div class="card-header"><div class="card-title">Pending Leave Requests</div>'
+   +'<button class="btn btn-ghost btn-sm" onclick="navigateTo('leaves-admin')">View All</button></div>'
+   +'<div style="padding:12px;">'
+   +(pendingLv.length===0
+     ? '<div class="no-data"><div class="no-data-icon">&#128203;</div><p>No pending requests.</p></div>'
+     : pendingLv.map(function(l){return '<div class="leave-card">'
+         +'<div class="l-type-icon lt-'+l.leaveType+'">'+leaveEmoji(l.leaveType)+'</div>'
+         +'<div class="leave-info"><div class="leave-name">'+l.employeeName+'</div>'
+         +'<div class="leave-meta">'+cap(l.leaveType)+' Leave &middot; '+fmtDate(l.startDate)+' &ndash; '+fmtDate(l.endDate)+'</div>'
+         +'<div style="display:flex;gap:6px;margin-top:8px;">'
+         +'<button class="btn btn-green btn-xs" onclick="handleLeave(''+l.id+'','approved')">&#10003; Approve</button>'
+         +'<button class="btn btn-red btn-xs" onclick="handleLeave(''+l.id+'','rejected')">&#10005; Reject</button>'
+         +'</div></div></div>';}).join(''))
+   +'</div></div>';
 }
 
-/* =====================================
+/* ============================================================
    PAGE: EMPLOYEES
-===================================== */
+============================================================ */
 async function renderEmployees() {
-  const pc = document.getElementById('pageContent');
-  pc.innerHTML = `<div class="page-fade">
-    <div class="section-header">
-      <div><div class="section-title">All Employees</div><div style="font-size:13px;color:var(--muted);margin-top:2px;">Manage your staff records</div></div>
-      <button class="btn btn-primary" onclick="openEmpModal()">+ Add Employee</button>
-    </div>
-    <div class="card" style="margin-bottom:14px;">
-      <div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;">
-        <input type="text" id="empSearch" placeholder="🔍  Search name, ID, or email…" style="flex:1;min-width:180px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" oninput="filterEmpTable()"/>
-        <select id="empDeptFilter" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" onchange="filterEmpTable()">
-          <option value="">All Departments</option>
-          <option>Engineering</option><option>Marketing</option><option>Finance</option>
-          <option>Human Resources</option><option>Operations</option><option>Sales</option>
-          <option>Customer Service</option><option>Management</option>
-        </select>
-      </div>
-    </div>
-    <div class="card">
-      <div class="table-wrap">
-        <table class="dt">
-          <thead><tr><th>Employee</th><th>ID</th><th>Department</th><th>Position</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead>
-          <tbody id="empTableBody"><tr><td colspan="7"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>`;
+  var pc = document.getElementById('pageContent');
+  pc.innerHTML = '<div class="page-fade">'
+    +'<div class="section-header"><div><div class="section-title">All Employees</div>'
+    +'<div style="font-size:13px;color:var(--muted);margin-top:2px;">Manage your staff records</div></div>'
+    +'<button class="btn btn-primary" onclick="openEmpModal()">+ Add Employee</button></div>'
+    +'<div class="card" style="margin-bottom:14px;"><div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;">'
+    +'<input type="text" id="empSearch" placeholder="&#128269;  Search name, ID, or email&hellip;" style="flex:1;min-width:180px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" oninput="filterEmpTable()"/>'
+    +'<select id="empDeptFilter" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" onchange="filterEmpTable()">'
+    +'<option value="">All Departments</option>'
+    +'<option>Engineering</option><option>Marketing</option><option>Finance</option>'
+    +'<option>Human Resources</option><option>Operations</option><option>Sales</option>'
+    +'<option>Customer Service</option><option>Management</option></select></div></div>'
+    +'<div class="card"><div class="table-wrap"><table class="dt">'
+    +'<thead><tr><th>Employee</th><th>ID</th><th>Department</th><th>Position</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead>'
+    +'<tbody id="empTableBody"><tr><td colspan="7"><div class="no-data"><div class="no-data-icon">&#9203;</div><p>Loading&hellip;</p></div></td></tr></tbody>'
+    +'</table></div></div></div>';
 
-  const unsub = db.collection('staff').orderBy('firstName').onSnapshot(snap=>{
-    allStaff = snap.docs.map(d=>({id:d.id,...d.data()}));
+  var unsub = db.collection('staff').orderBy('firstName').onSnapshot(function(snap){
+    allStaff = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
     filterEmpTable();
   });
   unsubArr.push(unsub);
 }
 
 function filterEmpTable() {
-  const q    = (document.getElementById('empSearch')?.value||'').toLowerCase();
-  const dept = document.getElementById('empDeptFilter')?.value||'';
-  const list = allStaff.filter(s=>{
-    const matchQ = !q||fullName(s).toLowerCase().includes(q)||(s.employeeID||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q);
-    const matchD = !dept||s.department===dept;
+  var q    = (document.getElementById('empSearch') ? document.getElementById('empSearch').value : '').toLowerCase();
+  var dept = document.getElementById('empDeptFilter') ? document.getElementById('empDeptFilter').value : '';
+  var list = allStaff.filter(function(s){
+    var matchQ = !q || fullName(s).toLowerCase().includes(q) || (s.employeeID||'').toLowerCase().includes(q) || (s.email||'').toLowerCase().includes(q);
+    var matchD = !dept || s.department === dept;
     return matchQ && matchD;
   });
-  const tb = document.getElementById('empTableBody');
+  var tb = document.getElementById('empTableBody');
   if (!tb) return;
-  if (!list.length) { tb.innerHTML=`<tr><td colspan="7"><div class="no-data"><div class="no-data-icon">🔍</div><p>No employees found.</p></div></td></tr>`; return; }
-  tb.innerHTML = list.map(s=>`<tr>
-    <td><div style="display:flex;align-items:center;gap:10px;">
-      <div class="emp-av" style="background:${avColor(s.firstName)}">${initials(s)}</div>
-      <div><div style="font-weight:600;">${fullName(s)}</div><div style="font-size:12px;color:var(--muted);">${s.email||''}</div></div>
-    </div></td>
-    <td><span style="font-family:monospace;font-size:12px;color:var(--accent);">${s.employeeID||'—'}</span></td>
-    <td><span class="dept-tag">${s.department||'—'}</span></td>
-    <td style="font-size:13px;">${s.position||'—'}</td>
-    <td><span class="badge badge-${roleBadge(s.role)}">${roleLbl(s.role||'employee')}</span></td>
-    <td style="font-size:13px;color:var(--muted);">${s.phone||'—'}</td>
-    <td><div style="display:flex;gap:6px;">
-      <button class="btn-icon" title="Edit" onclick="openEmpModal('${s.id}')">✏️</button>
-      <button class="btn-icon" title="Delete" onclick="confirmDel('${s.id}','staff','Delete ${fullName(s).replace(/'/g,'`')}?')">🗑️</button>
-    </div></td>
-  </tr>`).join('');
+  if (!list.length) { tb.innerHTML='<tr><td colspan="7"><div class="no-data"><div class="no-data-icon">&#128269;</div><p>No employees found.</p></div></td></tr>'; return; }
+  tb.innerHTML = list.map(function(s){return '<tr>'
+    +'<td><div style="display:flex;align-items:center;gap:10px;">'
+    +'<div class="emp-av" style="background:'+avColor(s.firstName)+'">'+initials(s)+'</div>'
+    +'<div><div style="font-weight:600;">'+fullName(s)+'</div><div style="font-size:12px;color:var(--muted);">'+(s.email||'')+'</div></div></div></td>'
+    +'<td><span style="font-family:monospace;font-size:12px;color:var(--accent);">'+(s.employeeID||'&mdash;')+'</span></td>'
+    +'<td><span class="dept-tag">'+(s.department||'&mdash;')+'</span></td>'
+    +'<td style="font-size:13px;">'+(s.position||'&mdash;')+'</td>'
+    +'<td><span class="badge badge-'+roleBadge(s.role)+'">'+roleLbl(s.role||'employee')+'</span></td>'
+    +'<td style="font-size:13px;color:var(--muted);">'+(s.phone||'&mdash;')+'</td>'
+    +'<td><div style="display:flex;gap:6px;">'
+    +'<button class="btn-icon" onclick="openEmpModal(''+s.id+'')">&#9999;&#65039;</button>'
+    +'<button class="btn-icon" onclick="confirmDel(''+s.id+'','staff','Delete '+fullName(s).replace(/'/g,'`')+'?')">&#128465;&#65039;</button>'
+    +'</div></td></tr>';}).join('');
 }
-function roleBadge(r){return{admin:'purple',manager:'blue',employee:'gray'}[r]||'gray';}
 
-/* Employee Modal */
-function openEmpModal(id=null) {
-  ['empFName','empLName','empEmail','empPhone','empEmpId','empPosition','empPassword'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
-  document.getElementById('empDept').value='';
-  document.getElementById('empRole').value='employee';
-  document.getElementById('empStartDate').value='';
-  document.getElementById('empModalId').value=id||'';
-  document.getElementById('empPwField').classList.toggle('hidden',!!id);
-  document.getElementById('empModalTitle').textContent=id?'Edit Employee':'Add Employee';
-  document.getElementById('empSaveBtn').textContent=id?'Save Changes':'Save Employee';
+function roleBadge(r){ return {admin:'purple',manager:'blue',employee:'gray'}[r]||'gray'; }
+
+function openEmpModal(id) {
+  id = id || null;
+  ['empFName','empLName','empEmail','empPhone','empEmpId','empPosition','empPassword'].forEach(function(i){ var el=document.getElementById(i); if(el) el.value=''; });
+  document.getElementById('empDept').value = '';
+  document.getElementById('empRole').value = 'employee';
+  document.getElementById('empStartDate').value = '';
+  document.getElementById('empModalId').value = id || '';
+  document.getElementById('empPwField').classList.toggle('hidden', !!id);
+  document.getElementById('empModalTitle').textContent = id ? 'Edit Employee' : 'Add Employee';
+  document.getElementById('empSaveBtn').textContent    = id ? 'Save Changes' : 'Save Employee';
   if (id) {
-    const s=allStaff.find(e=>e.id===id);
-    if(s){
-      document.getElementById('empFName').value=s.firstName||'';
-      document.getElementById('empLName').value=s.lastName||'';
-      document.getElementById('empEmail').value=s.email||'';
-      document.getElementById('empPhone').value=s.phone||'';
-      document.getElementById('empEmpId').value=s.employeeID||'';
-      document.getElementById('empDept').value=s.department||'';
-      document.getElementById('empPosition').value=s.position||'';
-      document.getElementById('empRole').value=s.role||'employee';
-      document.getElementById('empStartDate').value=s.startDate||'';
+    var s = allStaff.find(function(e){ return e.id===id; });
+    if (s) {
+      document.getElementById('empFName').value     = s.firstName  || '';
+      document.getElementById('empLName').value     = s.lastName   || '';
+      document.getElementById('empEmail').value     = s.email      || '';
+      document.getElementById('empPhone').value     = s.phone      || '';
+      document.getElementById('empEmpId').value     = s.employeeID || '';
+      document.getElementById('empDept').value      = s.department || '';
+      document.getElementById('empPosition').value  = s.position   || '';
+      document.getElementById('empRole').value      = s.role       || 'employee';
+      document.getElementById('empStartDate').value = s.startDate  || '';
     }
   }
   openModal('empModal');
 }
 
 async function saveEmployee() {
-  const id        = document.getElementById('empModalId').value;
-  const firstName = document.getElementById('empFName').value.trim();
-  const lastName  = document.getElementById('empLName').value.trim();
-  const email     = document.getElementById('empEmail').value.trim();
-  const phone     = document.getElementById('empPhone').value.trim();
-  const employeeID= document.getElementById('empEmpId').value.trim();
-  const department= document.getElementById('empDept').value;
-  const position  = document.getElementById('empPosition').value.trim();
-  const role      = document.getElementById('empRole').value;
-  const startDate = document.getElementById('empStartDate').value;
-  const password  = document.getElementById('empPassword').value;
-  if (!firstName||!lastName||!email){toast('First name, last name, and email are required.','error');return;}
-  const btn=document.getElementById('empSaveBtn');
-  btn.disabled=true;btn.textContent='Saving…';
+  var id         = document.getElementById('empModalId').value;
+  var firstName  = document.getElementById('empFName').value.trim();
+  var lastName   = document.getElementById('empLName').value.trim();
+  var email      = document.getElementById('empEmail').value.trim();
+  var phone      = document.getElementById('empPhone').value.trim();
+  var employeeID = document.getElementById('empEmpId').value.trim();
+  var department = document.getElementById('empDept').value;
+  var position   = document.getElementById('empPosition').value.trim();
+  var role       = document.getElementById('empRole').value;
+  var startDate  = document.getElementById('empStartDate').value;
+  var password   = document.getElementById('empPassword').value;
+  var pin        = '1234'; // default PIN for new employees — they can change it
+
+  if (!firstName||!lastName||!email){ toast('First name, last name, and email are required.','error'); return; }
+  var btn = document.getElementById('empSaveBtn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
   try {
     if (id) {
       await db.collection('staff').doc(id).update({firstName,lastName,email,phone,employeeID,department,position,role,startDate,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-      toast('Employee updated.','success');
+      toast('Employee updated.', 'success');
     } else {
-      if(!password||password.length<6){toast('Password must be at least 6 characters.','error');btn.disabled=false;btn.textContent='Save Employee';return;}
-      const adminEmail=currentUser.email;
-      const adminPass=prompt('Re-enter your admin password to register new user:');
-      if(!adminPass){btn.disabled=false;btn.textContent='Save Employee';return;}
-      const cred=await auth.createUserWithEmailAndPassword(email,password);
-      const uid=cred.user.uid;
-      await db.collection('staff').doc(uid).set({firstName,lastName,email,phone,employeeID,department,position,role,startDate,uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-      await auth.signInWithEmailAndPassword(adminEmail,adminPass);
-      toast('Employee created successfully.','success');
+      if (!password || password.length < 6){ toast('Password must be at least 6 characters.','error'); btn.disabled=false; btn.textContent='Save Employee'; return; }
+      var adminEmail = currentUser.email;
+      // Create the new user auth account then re-sign in as admin
+      var cred = await auth.createUserWithEmailAndPassword(email, password);
+      var uid  = cred.user.uid;
+      await db.collection('staff').doc(uid).set({
+        firstName,lastName,email,phone,employeeID,department,position,role,startDate,
+        uid, pin, authPass: password,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // Re-sign in as admin silently
+      await auth.signInWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS);
+      toast('Employee created successfully.', 'success');
     }
     closeModal('empModal');
-  } catch(e){toast('Error: '+e.message,'error');btn.disabled=false;btn.textContent=id?'Save Changes':'Save Employee';}
+  } catch(e){
+    toast('Error: '+e.message,'error');
+    btn.disabled=false; btn.textContent=id?'Save Changes':'Save Employee';
+  }
 }
 
-/* =====================================
+/* ============================================================
    PAGE: ATTENDANCE (Admin/Manager)
-===================================== */
+============================================================ */
 async function renderAttendance() {
-  const pc=document.getElementById('pageContent');
-  const today=todayStr();
-  pc.innerHTML=`<div class="page-fade">
-    <div class="section-header"><div class="section-title">Attendance Records</div></div>
-    <div class="card" style="margin-bottom:16px;">
-      <div style="padding:13px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="flex:1;min-width:160px;">
-          <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Date</label>
-          <input type="date" id="attDate" value="${today}" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" onchange="loadAttTable()"/>
-        </div>
-        <div style="flex:1;min-width:160px;">
-          <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Search</label>
-          <input type="text" id="attSearch" placeholder="Name or department…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" oninput="filterAttTable()"/>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="table-wrap">
-        <table class="dt">
-          <thead><tr><th>Employee</th><th>Dept</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th></tr></thead>
-          <tbody id="attBody"><tr><td colspan="6"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>`;
+  var pc = document.getElementById('pageContent');
+  var today = todayStr();
+  pc.innerHTML = '<div class="page-fade">'
+    +'<div class="section-header"><div class="section-title">Attendance Records</div></div>'
+    +'<div class="card" style="margin-bottom:16px;"><div style="padding:13px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">'
+    +'<div style="flex:1;min-width:160px;"><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Date</label>'
+    +'<input type="date" id="attDate" value="'+today+'" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" onchange="loadAttTable()"/></div>'
+    +'<div style="flex:1;min-width:160px;"><label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Search</label>'
+    +'<input type="text" id="attSearch" placeholder="Name or department…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" oninput="filterAttTable()"/></div>'
+    +'</div></div>'
+    +'<div class="card"><div class="table-wrap"><table class="dt">'
+    +'<thead><tr><th>Employee</th><th>Dept</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th></tr></thead>'
+    +'<tbody id="attBody"><tr><td colspan="6"><div class="no-data"><div class="no-data-icon">&#9203;</div><p>Loading…</p></div></td></tr></tbody>'
+    +'</table></div></div></div>';
   loadAttTable();
 }
 
 async function loadAttTable() {
-  const date=document.getElementById('attDate')?.value||todayStr();
-  const tb=document.getElementById('attBody');
-  if(!tb)return;
-  tb.innerHTML=`<tr><td colspan="6"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></td></tr>`;
-  const snap=await db.collection('attendance').where('date','==',date).orderBy('clockIn','desc').get();
-  allAttendance=snap.docs.map(d=>({id:d.id,...d.data()}));
+  var date = document.getElementById('attDate') ? document.getElementById('attDate').value : todayStr();
+  var tb = document.getElementById('attBody');
+  if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="6"><div class="no-data"><p>Loading…</p></div></td></tr>';
+  var snap = await db.collection('attendance').where('date','==',date).orderBy('clockIn','desc').get();
+  allAttendance = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
   filterAttTable();
 }
 
 function filterAttTable() {
-  const q=(document.getElementById('attSearch')?.value||'').toLowerCase();
-  const tb=document.getElementById('attBody');
-  if(!tb)return;
-  const list=allAttendance.filter(r=>!q||(r.employeeName||'').toLowerCase().includes(q)||(r.department||'').toLowerCase().includes(q));
-  if(!list.length){tb.innerHTML=`<tr><td colspan="6"><div class="no-data"><div class="no-data-icon">🔍</div><p>No records for this date.</p></div></td></tr>`;return;}
-  tb.innerHTML=list.map(r=>`<tr>
-    <td><div style="font-weight:600;">${r.employeeName||'—'}</div><div style="font-size:11px;color:var(--muted);">${r.employeeID||''}</div></td>
-    <td><span class="dept-tag">${r.department||'—'}</span></td>
-    <td style="font-size:13px;">${fmtTime(r.clockIn)||'—'}</td>
-    <td style="font-size:13px;">${r.clockOut?fmtTime(r.clockOut):'<span style="color:var(--muted);">Still In</span>'}</td>
-    <td style="font-size:13px;color:var(--muted);">${r.clockIn&&r.clockOut?duration(r.clockIn,r.clockOut):'—'}</td>
-    <td>${r.late?'<span class="late-tag">LATE</span>':'<span class="badge badge-green">On Time</span>'}</td>
-  </tr>`).join('');
+  var q  = (document.getElementById('attSearch') ? document.getElementById('attSearch').value : '').toLowerCase();
+  var tb = document.getElementById('attBody');
+  if (!tb) return;
+  var list = allAttendance.filter(function(r){ return !q || (r.employeeName||'').toLowerCase().includes(q) || (r.department||'').toLowerCase().includes(q); });
+  if (!list.length) { tb.innerHTML='<tr><td colspan="6"><div class="no-data"><p>No records for this date.</p></div></td></tr>'; return; }
+  tb.innerHTML = list.map(function(r){ return '<tr>'
+    +'<td><div style="font-weight:600;">'+(r.employeeName||'&mdash;')+'</div><div style="font-size:11px;color:var(--muted);">'+(r.employeeID||'')+'</div></td>'
+    +'<td><span class="dept-tag">'+(r.department||'&mdash;')+'</span></td>'
+    +'<td style="font-size:13px;">'+(fmtTime(r.clockIn)||'&mdash;')+'</td>'
+    +'<td style="font-size:13px;">'+(r.clockOut ? fmtTime(r.clockOut) : '<span style="color:var(--muted);">Still In</span>')+'</td>'
+    +'<td style="font-size:13px;color:var(--muted);">'+(r.clockIn&&r.clockOut?duration(r.clockIn,r.clockOut):'&mdash;')+'</td>'
+    +'<td>'+(r.late?'<span class="late-tag">LATE</span>':'<span class="badge badge-green">On Time</span>')+'</td>'
+    +'</tr>'; }).join('');
 }
 
-/* =====================================
-   PAGE: MY ATTENDANCE (Employee)
-===================================== */
+/* ============================================================
+   PAGE: MY ATTENDANCE (Employee clock-in/out)
+============================================================ */
 async function renderMyAttendance() {
-  const pc=document.getElementById('pageContent');
-  pc.innerHTML=`<div class="page-fade">
-    <div class="clock-hero">
-      <div class="clock-time" id="myClockTime">00:00:00</div>
-      <div class="clock-date" id="myClockDate">—</div>
-      <div class="clock-status" id="myClockSt"><div class="c-dot out"></div>Not clocked in</div>
-      <div class="clock-btns">
-        <button class="btn-ci" id="btnIn" onclick="myClock('IN')">⏱ Clock In</button>
-        <button class="btn-co hidden" id="btnOut" onclick="myClock('OUT')">✋ Clock Out</button>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
-      <div class="card card-pad" style="text-align:center;"><div class="stat-num green" id="myPresent">—</div><div class="stat-label">Days Present (this month)</div></div>
-      <div class="card card-pad" style="text-align:center;"><div class="stat-num amber" id="myLate">—</div><div class="stat-label">Late Arrivals (this month)</div></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">Attendance History</div></div>
-      <div class="card-body" id="myHistBody"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
-    </div>
-  </div>`;
+  var pc = document.getElementById('pageContent');
+  pc.innerHTML = '<div class="page-fade">'
+    +'<div class="clock-hero">'
+    +'<div class="clock-time" id="myClockTime">00:00:00</div>'
+    +'<div class="clock-date" id="myClockDate">&mdash;</div>'
+    +'<div class="clock-status" id="myClockSt"><div class="c-dot out"></div>Not clocked in</div>'
+    +'<div class="clock-btns">'
+    +'<button class="btn-ci" id="btnIn" onclick="myClock('IN')">&#9201; Clock In</button>'
+    +'<button class="btn-co hidden" id="btnOut" onclick="myClock('OUT')">&#9995; Clock Out</button>'
+    +'</div></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">'
+    +'<div class="card card-pad" style="text-align:center;"><div class="stat-num green" id="myPresent">&mdash;</div><div class="stat-label">Days Present this month</div></div>'
+    +'<div class="card card-pad" style="text-align:center;"><div class="stat-num amber" id="myLate">&mdash;</div><div class="stat-label">Late Arrivals this month</div></div>'
+    +'</div>'
+    +'<div class="card"><div class="card-header"><div class="card-title">Attendance History</div></div>'
+    +'<div class="card-body" id="myHistBody"><div class="no-data"><p>Loading…</p></div></div></div></div>';
   startClock();
   await checkMyStatus();
   loadMyHist();
@@ -1077,369 +1100,322 @@ async function renderMyAttendance() {
 }
 
 function startClock() {
-  if(clockTimer)clearInterval(clockTimer);
-  function tick(){
-    const now=new Date();
-    const t=document.getElementById('myClockTime');
-    const d=document.getElementById('myClockDate');
-    if(t)t.textContent=now.toLocaleTimeString('en-NG',{hour12:false});
-    if(d)d.textContent=now.toLocaleDateString('en-NG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  if (clockTimer) clearInterval(clockTimer);
+  function tick() {
+    var now = new Date();
+    var t = document.getElementById('myClockTime');
+    var d = document.getElementById('myClockDate');
+    if (t) t.textContent = now.toLocaleTimeString('en-NG',{hour12:false});
+    if (d) d.textContent = now.toLocaleDateString('en-NG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   }
-  tick();
-  clockTimer=setInterval(tick,1000);
+  tick(); clockTimer = setInterval(tick, 1000);
 }
 
 async function checkMyStatus() {
-  const snap=await db.collection('attendance').where('uid','==',currentUser.uid).where('date','==',todayStr()).limit(1).get();
-  const st=document.getElementById('myClockSt');
-  const bIn=document.getElementById('btnIn');
-  const bOut=document.getElementById('btnOut');
-  if(!st)return;
-  if(!snap.empty){
-    const d=snap.docs[0].data();
-    if(d.clockIn&&!d.clockOut){
-      st.innerHTML=`<div class="c-dot in"></div>Clocked In at ${fmtTime(d.clockIn)}`;
-      bIn.classList.add('hidden');bOut.classList.remove('hidden');
-    } else if(d.clockOut){
-      st.innerHTML=`<div class="c-dot out"></div>Clocked Out at ${fmtTime(d.clockOut)}`;
-      bIn.classList.remove('hidden');bOut.classList.add('hidden');
+  var snap = await db.collection('attendance').where('uid','==',currentUser.uid).where('date','==',todayStr()).limit(1).get();
+  var st   = document.getElementById('myClockSt');
+  var bIn  = document.getElementById('btnIn');
+  var bOut = document.getElementById('btnOut');
+  if (!st) return;
+  if (!snap.empty) {
+    var d = snap.docs[0].data();
+    if (d.clockIn && !d.clockOut) {
+      st.innerHTML = '<div class="c-dot in"></div>Clocked In at '+fmtTime(d.clockIn);
+      if (bIn) bIn.classList.add('hidden'); if (bOut) bOut.classList.remove('hidden');
+    } else if (d.clockOut) {
+      st.innerHTML = '<div class="c-dot out"></div>Clocked Out at '+fmtTime(d.clockOut);
+      if (bIn) bIn.classList.remove('hidden'); if (bOut) bOut.classList.add('hidden');
     }
   }
 }
 
 async function myClock(type) {
-  const btn=type==='IN'?document.getElementById('btnIn'):document.getElementById('btnOut');
-  if(!btn)return;
-  btn.disabled=true;btn.textContent='Recording…';
-  const today=todayStr();
-  const nowStr=new Date().toISOString();
-  const isLate=type==='IN'&&new Date().getHours()>=9;
-  try{
-    const ex=await db.collection('attendance').where('uid','==',currentUser.uid).where('date','==',today).limit(1).get();
-    if(type==='IN'){
-      if(!ex.empty){toast('Already clocked in today.','warn');return;}
+  var btn = type==='IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = 'Recording…';
+  var today  = todayStr();
+  var nowStr = new Date().toISOString();
+  var isLate = (type==='IN' && new Date().getHours() >= 9);
+  try {
+    var ex = await db.collection('attendance').where('uid','==',currentUser.uid).where('date','==',today).limit(1).get();
+    if (type==='IN') {
+      if (!ex.empty){ toast('Already clocked in today.','warn'); return; }
       await db.collection('attendance').add({
-        uid:currentUser.uid,employeeName:fullName(staffProfile),employeeID:staffProfile.employeeID||'',
-        department:staffProfile.department||'',position:staffProfile.position||'',
-        date:today,clockIn:nowStr,clockInTs:firebase.firestore.FieldValue.serverTimestamp(),
-        late:isLate,location:gpsCoords||null
+        uid:currentUser.uid, employeeName:fullName(staffProfile), employeeID:staffProfile.employeeID||'',
+        department:staffProfile.department||'', position:staffProfile.position||'',
+        date:today, clockIn:nowStr, clockInTs:firebase.firestore.FieldValue.serverTimestamp(),
+        late:isLate, location:gpsCoords||null
       });
-      toast(isLate?'⚠ Clocked in (late).':'✅ Clocked in successfully!',isLate?'warn':'success');
+      toast(isLate ? '&#9888; Clocked in (late).' : '&#10003; Clocked in successfully!', isLate?'warn':'success');
     } else {
-      if(ex.empty){toast('No clock-in record found for today.','error');return;}
-      await db.collection('attendance').doc(ex.docs[0].id).update({clockOut:nowStr,clockOutTs:firebase.firestore.FieldValue.serverTimestamp()});
-      toast('✅ Clocked out. Have a great rest of the day!','success');
+      if (ex.empty){ toast('No clock-in record found for today.','error'); return; }
+      await db.collection('attendance').doc(ex.docs[0].id).update({clockOut:nowStr, clockOutTs:firebase.firestore.FieldValue.serverTimestamp()});
+      toast('Clocked out. Have a great rest of the day!','success');
     }
-    await checkMyStatus();
-    loadMyHist();
-    loadMyStats();
-    addNotif({title:`${fullName(staffProfile)} ${type==='IN'?'clocked in':'clocked out'}`,body:`${new Date().toLocaleTimeString('en-NG')} · ${staffProfile.department||''}`,icon:type==='IN'?'⏱':'✋'});
-  } catch(e){toast('Error: '+e.message,'error');}
-  finally{if(btn){btn.disabled=false;btn.textContent=type==='IN'?'⏱ Clock In':'✋ Clock Out';}}
+    await checkMyStatus(); loadMyHist(); loadMyStats();
+    addNotif({title:fullName(staffProfile)+' '+(type==='IN'?'clocked in':'clocked out'), body:new Date().toLocaleTimeString('en-NG')+' · '+(staffProfile.department||''), icon:type==='IN'?'&#9201;':'&#9995;'});
+  } catch(e){ toast('Error: '+e.message,'error'); }
+  finally{ if(btn){btn.disabled=false; btn.textContent=type==='IN'?'&#9201; Clock In':'&#9995; Clock Out';} }
 }
 
 async function loadMyHist() {
-  const body=document.getElementById('myHistBody');
-  if(!body)return;
-  const snap=await db.collection('attendance').where('uid','==',currentUser.uid).orderBy('date','desc').limit(14).get();
-  if(snap.empty){body.innerHTML='<div class="no-data"><div class="no-data-icon">📋</div><p>No attendance records yet.</p></div>';return;}
-  body.innerHTML=`<ul class="timeline">`+snap.docs.map(doc=>{
-    const d=doc.data();
-    const dur=d.clockIn&&d.clockOut?duration(d.clockIn,d.clockOut):'In Progress';
-    return `<li class="tl-item"><div class="tl-dot in">✓</div><div class="tl-content">
-      <div class="tl-title">${fmtDate(d.date)} ${d.late?'<span class="late-tag" style="margin-left:6px;">LATE</span>':''}</div>
-      <div class="tl-meta">In: ${fmtTime(d.clockIn)||'—'} · Out: ${d.clockOut?fmtTime(d.clockOut):'Still In'} · ${dur}</div>
-    </div></li>`;
-  }).join('')+`</ul>`;
+  var body = document.getElementById('myHistBody');
+  if (!body) return;
+  var snap = await db.collection('attendance').where('uid','==',currentUser.uid).orderBy('date','desc').limit(14).get();
+  if (snap.empty){ body.innerHTML='<div class="no-data"><div class="no-data-icon">&#128203;</div><p>No attendance records yet.</p></div>'; return; }
+  body.innerHTML = '<ul class="timeline">'
+    + snap.docs.map(function(doc){
+      var d=doc.data();
+      var dur=d.clockIn&&d.clockOut?duration(d.clockIn,d.clockOut):'In Progress';
+      return '<li class="tl-item"><div class="tl-dot in">&#10003;</div><div class="tl-content">'
+        +'<div class="tl-title">'+fmtDate(d.date)+(d.late?' <span class="late-tag" style="margin-left:6px;">LATE</span>':'')+'</div>'
+        +'<div class="tl-meta">In: '+(fmtTime(d.clockIn)||'&mdash;')+' &middot; Out: '+(d.clockOut?fmtTime(d.clockOut):'Still In')+' &middot; '+dur+'</div>'
+        +'</div></li>';
+    }).join('')+'</ul>';
 }
 
 async function loadMyStats() {
-  const month=new Date().toISOString().slice(0,7);
-  const snap=await db.collection('attendance').where('uid','==',currentUser.uid).get();
-  const mth=snap.docs.map(d=>d.data()).filter(d=>d.date&&d.date.startsWith(month));
-  const p=document.getElementById('myPresent');
-  const l=document.getElementById('myLate');
-  if(p)p.textContent=mth.filter(d=>d.clockIn).length;
-  if(l)l.textContent=mth.filter(d=>d.late).length;
+  var month = new Date().toISOString().slice(0,7);
+  var snap  = await db.collection('attendance').where('uid','==',currentUser.uid).get();
+  var mth   = snap.docs.map(function(d){return d.data();}).filter(function(d){return d.date&&d.date.startsWith(month);});
+  var p = document.getElementById('myPresent'); var l = document.getElementById('myLate');
+  if (p) p.textContent = mth.filter(function(d){return d.clockIn;}).length;
+  if (l) l.textContent = mth.filter(function(d){return d.late;}).length;
 }
 
-/* =====================================
+/* ============================================================
    PAGE: LEAVE REQUESTS (Admin/Manager)
-===================================== */
+============================================================ */
 async function renderLeavesAdmin() {
-  const pc=document.getElementById('pageContent');
-  pc.innerHTML=`<div class="page-fade">
-    <div class="section-header">
-      <div class="section-title">Leave Requests</div>
-      <select id="lvFilter" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" onchange="renderLeaveList()">
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-        <option value="">All</option>
-      </select>
-    </div>
-    <div id="leaveAdminList"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
-  </div>`;
-  const unsub=db.collection('leaves').orderBy('createdAt','desc').onSnapshot(snap=>{
-    allLeaves=snap.docs.map(d=>({id:d.id,...d.data()}));
-    updateBadge('leavePending',allLeaves.filter(l=>l.status==='pending').length);
+  var pc = document.getElementById('pageContent');
+  pc.innerHTML = '<div class="page-fade">'
+    +'<div class="section-header"><div class="section-title">Leave Requests</div>'
+    +'<select id="lvFilter" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;" onchange="renderLeaveList()">'
+    +'<option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All</option>'
+    +'</select></div>'
+    +'<div id="leaveAdminList"><div class="no-data"><p>Loading…</p></div></div></div>';
+  var unsub = db.collection('leaves').orderBy('createdAt','desc').onSnapshot(function(snap){
+    allLeaves = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    updateBadge('leavePending', allLeaves.filter(function(l){return l.status==='pending';}).length);
     renderLeaveList();
   });
   unsubArr.push(unsub);
 }
 
 function renderLeaveList() {
-  const status=document.getElementById('lvFilter')?.value;
-  const list=document.getElementById('leaveAdminList');
-  if(!list)return;
-  const filtered=status?allLeaves.filter(l=>l.status===status):allLeaves;
-  if(!filtered.length){list.innerHTML=`<div class="no-data"><div class="no-data-icon">📋</div><p>No leave requests found.</p></div>`;return;}
-  list.innerHTML=filtered.map(l=>`
-    <div class="leave-card">
-      <div class="l-type-icon lt-${l.leaveType}">${leaveEmoji(l.leaveType)}</div>
-      <div class="leave-info" style="flex:1;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <div class="leave-name">${l.employeeName}</div>
-          <span class="badge badge-${lvBadge(l.status)}">${l.status}</span>
-        </div>
-        <div class="leave-meta">${cap(l.leaveType)} Leave · ${fmtDate(l.startDate)} – ${fmtDate(l.endDate)}</div>
-        ${l.reason?`<div style="font-size:12px;color:var(--muted);margin-top:3px;">${l.reason}</div>`:''}
-        ${l.status==='pending'?`<div style="display:flex;gap:6px;margin-top:8px;">
-          <button class="btn btn-green btn-xs" onclick="handleLeave('${l.id}','approved')">✓ Approve</button>
-          <button class="btn btn-red btn-xs" onclick="handleLeave('${l.id}','rejected')">✕ Reject</button>
-        </div>`:''}
-      </div>
-      <div style="font-size:11px;color:var(--muted);white-space:nowrap;">${fmtDate(l.createdAt?.toDate?.()?.toISOString?.()?.split('T')[0]||'')}</div>
-    </div>`).join('');
+  var status = document.getElementById('lvFilter') ? document.getElementById('lvFilter').value : 'pending';
+  var list   = document.getElementById('leaveAdminList');
+  if (!list) return;
+  var filtered = status ? allLeaves.filter(function(l){return l.status===status;}) : allLeaves;
+  if (!filtered.length){ list.innerHTML='<div class="no-data"><div class="no-data-icon">&#128203;</div><p>No leave requests found.</p></div>'; return; }
+  list.innerHTML = filtered.map(function(l){ return '<div class="leave-card">'
+    +'<div class="l-type-icon lt-'+l.leaveType+'">'+leaveEmoji(l.leaveType)+'</div>'
+    +'<div class="leave-info" style="flex:1;">'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+    +'<div class="leave-name">'+l.employeeName+'</div>'
+    +'<span class="badge badge-'+lvBadge(l.status)+'">'+l.status+'</span></div>'
+    +'<div class="leave-meta">'+cap(l.leaveType)+' Leave &middot; '+fmtDate(l.startDate)+' &ndash; '+fmtDate(l.endDate)+'</div>'
+    +(l.reason?'<div style="font-size:12px;color:var(--muted);margin-top:3px;">'+l.reason+'</div>':'')
+    +(l.status==='pending'
+      ?'<div style="display:flex;gap:6px;margin-top:8px;">'
+       +'<button class="btn btn-green btn-xs" onclick="handleLeave(''+l.id+'','approved')">&#10003; Approve</button>'
+       +'<button class="btn btn-red btn-xs" onclick="handleLeave(''+l.id+'','rejected')">&#10005; Reject</button>'
+       +'</div>':'')
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--muted);white-space:nowrap;">'+fmtDate((l.createdAt&&l.createdAt.toDate?l.createdAt.toDate().toISOString().split('T')[0]:null))+'</div>'
+    +'</div>'; }).join('');
 }
 
-async function handleLeave(id,status) {
-  try{
-    const doc=await db.collection('leaves').doc(id).get();
-    const data=doc.data();
-    await db.collection('leaves').doc(id).update({status,reviewedBy:currentUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp()});
-    toast(`Leave request ${status}.`,status==='approved'?'success':'error');
-    addNotif({title:`Your leave request was ${status}`,body:`${cap(data.leaveType)} leave · ${fmtDate(data.startDate)} – ${fmtDate(data.endDate)}`,icon:status==='approved'?'✅':'❌',forUid:data.uid});
-  }catch(e){toast('Error: '+e.message,'error');}
+async function handleLeave(id, status) {
+  try {
+    var doc  = await db.collection('leaves').doc(id).get();
+    var data = doc.data();
+    await db.collection('leaves').doc(id).update({status, reviewedBy:currentUser.uid, reviewedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    toast('Leave request '+status+'.', status==='approved'?'success':'error');
+    addNotif({title:'Your leave request was '+status, body:cap(data.leaveType)+' leave · '+fmtDate(data.startDate)+' – '+fmtDate(data.endDate), icon:status==='approved'?'&#10003;':'&#10007;', forUid:data.uid});
+  } catch(e){ toast('Error: '+e.message,'error'); }
 }
-function lvBadge(s){return{pending:'amber',approved:'green',rejected:'red'}[s]||'gray';}
+function lvBadge(s){ return {pending:'amber',approved:'green',rejected:'red'}[s]||'gray'; }
 
-/* =====================================
+/* ============================================================
    PAGE: MY LEAVES (Employee)
-===================================== */
+============================================================ */
 async function renderMyLeaves() {
-  const pc=document.getElementById('pageContent');
-  pc.innerHTML=`<div class="page-fade">
-    <div class="section-header">
-      <div class="section-title">My Leave Requests</div>
-      <button class="btn btn-primary" onclick="openModal('leaveModal')">+ Request Leave</button>
-    </div>
-    <div id="myLeaveList"><div class="no-data"><div class="no-data-icon">⏳</div><p>Loading…</p></div></div>
-  </div>`;
-  const unsub=db.collection('leaves').where('uid','==',currentUser.uid).orderBy('createdAt','desc').onSnapshot(snap=>{
-    const leaves=snap.docs.map(d=>({id:d.id,...d.data()}));
-    const list=document.getElementById('myLeaveList');
-    if(!list)return;
-    if(!leaves.length){list.innerHTML=`<div class="no-data"><div class="no-data-icon">🌴</div><p>No leave requests yet. Click "Request Leave" to submit one.</p></div>`;return;}
-    list.innerHTML=leaves.map(l=>`
-      <div class="leave-card">
-        <div class="l-type-icon lt-${l.leaveType}">${leaveEmoji(l.leaveType)}</div>
-        <div class="leave-info" style="flex:1;">
-          <div class="leave-name">${cap(l.leaveType)} Leave</div>
-          <div class="leave-meta">${fmtDate(l.startDate)} – ${fmtDate(l.endDate)}</div>
-          ${l.reason?`<div style="font-size:12px;color:var(--muted);margin-top:3px;">${l.reason}</div>`:''}
-        </div>
-        <span class="badge badge-${lvBadge(l.status)}">${l.status}</span>
-      </div>`).join('');
+  var pc = document.getElementById('pageContent');
+  pc.innerHTML = '<div class="page-fade">'
+    +'<div class="section-header"><div class="section-title">My Leave Requests</div>'
+    +'<button class="btn btn-primary" onclick="openModal('leaveModal')">+ Request Leave</button></div>'
+    +'<div id="myLeaveList"><div class="no-data"><p>Loading…</p></div></div></div>';
+  var unsub = db.collection('leaves').where('uid','==',currentUser.uid).orderBy('createdAt','desc').onSnapshot(function(snap){
+    var leaves = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    var list   = document.getElementById('myLeaveList');
+    if (!list) return;
+    if (!leaves.length){ list.innerHTML='<div class="no-data"><div class="no-data-icon">&#127796;</div><p>No leave requests yet.</p></div>'; return; }
+    list.innerHTML = leaves.map(function(l){ return '<div class="leave-card">'
+      +'<div class="l-type-icon lt-'+l.leaveType+'">'+leaveEmoji(l.leaveType)+'</div>'
+      +'<div class="leave-info" style="flex:1;">'
+      +'<div class="leave-name">'+cap(l.leaveType)+' Leave</div>'
+      +'<div class="leave-meta">'+fmtDate(l.startDate)+' &ndash; '+fmtDate(l.endDate)+'</div>'
+      +(l.reason?'<div style="font-size:12px;color:var(--muted);margin-top:3px;">'+l.reason+'</div>':'')
+      +'</div><span class="badge badge-'+lvBadge(l.status)+'">'+l.status+'</span></div>'; }).join('');
   });
   unsubArr.push(unsub);
 }
 
 async function submitLeave() {
-  const leaveType=document.getElementById('leaveType').value;
-  const startDate=document.getElementById('leaveStart').value;
-  const endDate=document.getElementById('leaveEnd').value;
-  const reason=document.getElementById('leaveReason').value.trim();
-  if(!startDate||!endDate){toast('Select start and end dates.','error');return;}
-  if(new Date(endDate)<new Date(startDate)){toast('End date cannot be before start date.','error');return;}
-  try{
+  var leaveType = document.getElementById('leaveType').value;
+  var startDate = document.getElementById('leaveStart').value;
+  var endDate   = document.getElementById('leaveEnd').value;
+  var reason    = document.getElementById('leaveReason').value.trim();
+  if (!startDate||!endDate){ toast('Select start and end dates.','error'); return; }
+  if (new Date(endDate)<new Date(startDate)){ toast('End date cannot be before start date.','error'); return; }
+  try {
     await db.collection('leaves').add({
-      uid:currentUser.uid,employeeName:fullName(staffProfile),employeeID:staffProfile.employeeID||'',
-      department:staffProfile.department||'',leaveType,startDate,endDate,reason,
-      status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp()
+      uid:currentUser.uid, employeeName:fullName(staffProfile), employeeID:staffProfile.employeeID||'',
+      department:staffProfile.department||'', leaveType, startDate, endDate, reason,
+      status:'pending', createdAt:firebase.firestore.FieldValue.serverTimestamp()
     });
     toast('Leave request submitted successfully.','success');
     closeModal('leaveModal');
     document.getElementById('leaveReason').value='';
-  }catch(e){toast('Error: '+e.message,'error');}
+  } catch(e){ toast('Error: '+e.message,'error'); }
 }
 
-/* =====================================
+/* ============================================================
    PAGE: REPORTS
-===================================== */
+============================================================ */
 async function renderReports() {
-  const pc=document.getElementById('pageContent');
-  const today=todayStr();
-  const thisMonth=today.slice(0,7);
+  var pc = document.getElementById('pageContent');
+  var today = todayStr(); var thisMonth = today.slice(0,7);
   window._rptMode='monthly';
-  pc.innerHTML=`<div class="page-fade">
-    <div class="section-header">
-      <div class="section-title">Attendance Reports</div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost btn-sm" id="btnRptD" onclick="switchRpt('daily')">Daily</button>
-        <button class="btn btn-primary btn-sm" id="btnRptM" onclick="switchRpt('monthly')">Monthly</button>
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:16px;">
-      <div style="padding:13px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div id="rptDailyCtrl">
-          <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Specific Date</label>
-          <input type="date" id="rptDate" value="${today}" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"/>
-        </div>
-        <div id="rptMonthCtrl">
-          <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Month</label>
-          <input type="month" id="rptMonth" value="${thisMonth}" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"/>
-        </div>
-        <button class="btn btn-primary" style="align-self:flex-end;" onclick="genReport()">Generate Report</button>
-      </div>
-    </div>
-    <div id="rptOutput"><div class="no-data"><div class="no-data-icon">📈</div><p>Select a period and click Generate.</p></div></div>
-  </div>`;
-  switchRpt('monthly');
+  pc.innerHTML = '<div class="page-fade">'
+    +'<div class="section-header"><div class="section-title">Attendance Reports</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="btn btn-ghost btn-sm" id="btnRptD" onclick="switchRpt('daily')">Daily</button>'
+    +'<button class="btn btn-primary btn-sm" id="btnRptM" onclick="switchRpt('monthly')">Monthly</button>'
+    +'</div></div>'
+    +'<div class="card" style="margin-bottom:16px;"><div style="padding:13px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">'
+    +'<div id="rptDailyCtrl" style="display:none;">'
+    +'<label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Date</label>'
+    +'<input type="date" id="rptDate" value="'+today+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"/></div>'
+    +'<div id="rptMonthCtrl">'
+    +'<label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Month</label>'
+    +'<input type="month" id="rptMonth" value="'+thisMonth+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"/></div>'
+    +'<button class="btn btn-primary" style="align-self:flex-end;" onclick="genReport()">Generate Report</button>'
+    +'</div></div>'
+    +'<div id="rptOutput"><div class="no-data"><div class="no-data-icon">&#128202;</div><p>Select a period and click Generate.</p></div></div></div>';
+  genReport();
 }
 
 function switchRpt(mode) {
   window._rptMode=mode;
-  const d=document.getElementById('rptDailyCtrl');
-  const m=document.getElementById('rptMonthCtrl');
-  const bd=document.getElementById('btnRptD');
-  const bm=document.getElementById('btnRptM');
-  if(d&&m){
-    d.style.display=mode==='daily'?'block':'none';
-    m.style.display=mode==='monthly'?'block':'none';
-  }
-  if(bd&&bm){
-    bd.className=mode==='daily'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';
-    bm.className=mode==='monthly'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';
-  }
+  var dc=document.getElementById('rptDailyCtrl'); var mc=document.getElementById('rptMonthCtrl');
+  var bd=document.getElementById('btnRptD');       var bm=document.getElementById('btnRptM');
+  if(dc)dc.style.display=mode==='daily'?'block':'none';
+  if(mc)mc.style.display=mode==='monthly'?'block':'none';
+  if(bd)bd.className=mode==='daily'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';
+  if(bm)bm.className=mode==='monthly'?'btn btn-primary btn-sm':'btn btn-ghost btn-sm';
 }
 
 async function genReport() {
-  const out=document.getElementById('rptOutput');
-  if(!out)return;
-  out.innerHTML='<div class="no-data"><div class="no-data-icon">⏳</div><p>Generating…</p></div>';
-  let records=[];
-  let title='';
+  var out=document.getElementById('rptOutput'); if(!out)return;
+  out.innerHTML='<div class="no-data"><p>Generating…</p></div>';
+  var records=[], title='';
   if(window._rptMode==='daily'){
-    const date=document.getElementById('rptDate')?.value||todayStr();
-    const snap=await db.collection('attendance').where('date','==',date).get();
-    records=snap.docs.map(d=>d.data());
-    title=`Daily Report — ${fmtDate(date)}`;
+    var date=document.getElementById('rptDate')?document.getElementById('rptDate').value:todayStr();
+    var snap=await db.collection('attendance').where('date','==',date).get();
+    records=snap.docs.map(function(d){return d.data();}); title='Daily Report — '+fmtDate(date);
   } else {
-    const month=document.getElementById('rptMonth')?.value||new Date().toISOString().slice(0,7);
-    const snap=await db.collection('attendance').get();
-    records=snap.docs.map(d=>d.data()).filter(d=>d.date&&d.date.startsWith(month));
-    title=`Monthly Report — ${month}`;
+    var month=document.getElementById('rptMonth')?document.getElementById('rptMonth').value:new Date().toISOString().slice(0,7);
+    var snap=await db.collection('attendance').get();
+    records=snap.docs.map(function(d){return d.data();}).filter(function(d){return d.date&&d.date.startsWith(month);}); title='Monthly Report — '+month;
   }
-  renderReport(records,title);
-}
-
-function renderReport(records,title) {
-  const out=document.getElementById('rptOutput');
-  if(!out)return;
-  const total=records.length;
-  const withOut=records.filter(r=>r.clockOut).length;
-  const late=records.filter(r=>r.late).length;
-  const onTime=total-late;
-  const byEmp={};
-  records.forEach(r=>{
+  var total=records.length, withOut=records.filter(function(r){return r.clockOut;}).length;
+  var late=records.filter(function(r){return r.late;}).length, onTime=total-late;
+  var byEmp={};
+  records.forEach(function(r){
     if(!r.uid)return;
     if(!byEmp[r.uid])byEmp[r.uid]={name:r.employeeName||'—',dept:r.department||'—',count:0,late:0};
-    byEmp[r.uid].count++;
-    if(r.late)byEmp[r.uid].late++;
+    byEmp[r.uid].count++; if(r.late)byEmp[r.uid].late++;
   });
-  out.innerHTML=`
-    <div class="card card-pad" style="margin-bottom:16px;">
-      <div style="font-size:15px;font-weight:700;margin-bottom:16px;">${title}</div>
-      <div class="report-summary">
-        <div class="r-cell"><div class="r-cell-num" style="color:var(--accent);">${total}</div><div class="r-cell-label">Total Records</div></div>
-        <div class="r-cell"><div class="r-cell-num" style="color:var(--green);">${onTime}</div><div class="r-cell-label">On Time</div></div>
-        <div class="r-cell"><div class="r-cell-num" style="color:var(--amber);">${late}</div><div class="r-cell-label">Late Arrivals</div></div>
-        <div class="r-cell"><div class="r-cell-num" style="color:var(--accent2);">${withOut}</div><div class="r-cell-label">Completed</div></div>
-        <div class="r-cell"><div class="r-cell-num" style="color:var(--muted);">${Object.keys(byEmp).length}</div><div class="r-cell-label">Unique Staff</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">Staff Summary</div></div>
-      <div class="table-wrap">
-        <table class="dt">
-          <thead><tr><th>Employee</th><th>Department</th><th>Days Present</th><th>Late Days</th><th>Punctuality</th></tr></thead>
-          <tbody>
-            ${Object.values(byEmp).length===0
-              ? `<tr><td colspan="5"><div class="no-data"><p>No data for this period.</p></div></td></tr>`
-              : Object.values(byEmp).sort((a,b)=>b.count-a.count).map(e=>{
-                const pct=Math.round(((e.count-e.late)/e.count)*100);
-                return `<tr>
-                  <td style="font-weight:600;">${e.name}</td>
-                  <td><span class="dept-tag">${e.dept}</span></td>
-                  <td>${e.count}</td>
-                  <td>${e.late>0?`<span class="late-tag">${e.late}</span>`:'<span style="color:var(--green);font-weight:600;">0</span>'}</td>
-                  <td><div style="display:flex;align-items:center;gap:8px;">
-                    <div style="flex:1;height:6px;background:var(--border);border-radius:3px;min-width:60px;">
-                      <div style="height:100%;width:${pct}%;background:${pct>=90?'var(--green)':pct>=70?'var(--amber)':'var(--red)'};border-radius:3px;"></div>
-                    </div>
-                    <span style="font-size:12px;font-weight:600;">${pct}%</span>
-                  </div></td>
-                </tr>`;
-              }).join('')
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>`;
+  out.innerHTML='<div class="card card-pad" style="margin-bottom:16px;">'
+    +'<div style="font-size:15px;font-weight:700;margin-bottom:16px;">'+title+'</div>'
+    +'<div class="report-summary">'
+    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--accent);">'+total+'</div><div class="r-cell-label">Total</div></div>'
+    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--green);">'+onTime+'</div><div class="r-cell-label">On Time</div></div>'
+    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--amber);">'+late+'</div><div class="r-cell-label">Late</div></div>'
+    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--accent2);">'+withOut+'</div><div class="r-cell-label">Completed</div></div>'
+    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--muted);">'+Object.keys(byEmp).length+'</div><div class="r-cell-label">Staff</div></div>'
+    +'</div></div>'
+    +'<div class="card"><div class="card-header"><div class="card-title">Staff Summary</div></div><div class="table-wrap">'
+    +'<table class="dt"><thead><tr><th>Employee</th><th>Department</th><th>Days Present</th><th>Late Days</th><th>Punctuality</th></tr></thead><tbody>'
+    +(Object.values(byEmp).length===0
+      ?'<tr><td colspan="5"><div class="no-data"><p>No data for this period.</p></div></td></tr>'
+      :Object.values(byEmp).sort(function(a,b){return b.count-a.count;}).map(function(e){
+        var pct=Math.round(((e.count-e.late)/e.count)*100);
+        return '<tr><td style="font-weight:600;">'+e.name+'</td><td><span class="dept-tag">'+e.dept+'</span></td>'
+          +'<td>'+e.count+'</td>'
+          +'<td>'+(e.late>0?'<span class="late-tag">'+e.late+'</span>':'<span style="color:var(--green);font-weight:600;">0</span>')+'</td>'
+          +'<td><div style="display:flex;align-items:center;gap:8px;">'
+          +'<div style="flex:1;height:6px;background:var(--border);border-radius:3px;min-width:60px;">'
+          +'<div style="height:100%;width:'+pct+'%;background:'+(pct>=90?'var(--green)':pct>=70?'var(--amber)':'var(--red)')+';border-radius:3px;"></div>'
+          +'</div><span style="font-size:12px;font-weight:600;">'+pct+'%</span></div></td></tr>';
+      }).join(''))
+    +'</tbody></table></div></div>';
 }
 
-/* =====================================
+/* ============================================================
    NOTIFICATIONS
-===================================== */
+============================================================ */
 async function loadNotifications() {
-  try{
-    const snap=await db.collection('notifications').orderBy('createdAt','desc').limit(20).get();
-    notifications=snap.docs.map(d=>({id:d.id,...d.data()}));
+  try {
+    var snap = await db.collection('notifications').orderBy('createdAt','desc').limit(20).get();
+    notifications = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
     renderNotifs();
-    const unread=notifications.filter(n=>!n.read).length;
-    const dot=document.getElementById('notifDot');
-    if(dot)dot.classList.toggle('hidden',unread===0);
-  }catch(_){}
-}
-function renderNotifs() {
-  const list=document.getElementById('notifList');
-  if(!list)return;
-  if(!notifications.length){list.innerHTML='<div class="no-data"><div class="no-data-icon">🔔</div><p>No notifications yet.</p></div>';return;}
-  list.innerHTML=notifications.map(n=>`
-    <div class="notif-item ${n.read?'':'unread'}">
-      <div class="notif-item-icon">${n.icon||'🔔'}</div>
-      <div><div style="font-size:13px;font-weight:600;margin-bottom:2px;">${n.title||'Notification'}</div>
-      <div style="font-size:12px;color:var(--muted);line-height:1.5;">${n.body||''}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:3px;">${n.createdAt?.toDate?timeAgo(n.createdAt.toDate()):'—'}</div>
-      </div>
-    </div>`).join('');
-}
-async function addNotif(data) {
-  try{await db.collection('notifications').add({...data,read:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()});setTimeout(loadNotifications,1500);}catch(_){}
-}
-function toggleNotif() {
-  const p=document.getElementById('notifPanel');p.classList.toggle('open');
-  notifications.filter(n=>!n.read).forEach(n=>db.collection('notifications').doc(n.id).update({read:true}).catch(()=>{}));
-  const dot=document.getElementById('notifDot');if(dot)dot.classList.add('hidden');
+    var unread = notifications.filter(function(n){return !n.read;}).length;
+    var dot = document.getElementById('notifDot'); if(dot) dot.classList.toggle('hidden',unread===0);
+  } catch(_){}
 }
 
-/* =====================================
+function renderNotifs() {
+  var list = document.getElementById('notifList'); if(!list)return;
+  if(!notifications.length){list.innerHTML='<div class="no-data"><div class="no-data-icon">&#128276;</div><p>No notifications yet.</p></div>';return;}
+  list.innerHTML = notifications.map(function(n){ return '<div class="notif-item '+(n.read?'':'unread')+'">'
+    +'<div class="notif-item-icon">'+(n.icon||'&#128276;')+'</div>'
+    +'<div><div style="font-size:13px;font-weight:600;margin-bottom:2px;">'+(n.title||'Notification')+'</div>'
+    +'<div style="font-size:12px;color:var(--muted);line-height:1.5;">'+(n.body||'')+'</div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:3px;">'+(n.createdAt&&n.createdAt.toDate?timeAgo(n.createdAt.toDate()):'&mdash;')+'</div>'
+    +'</div></div>'; }).join('');
+}
+
+async function addNotif(data) {
+  try{ await db.collection('notifications').add(Object.assign({},data,{read:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()})); setTimeout(loadNotifications,1500); }catch(_){}
+}
+
+function toggleNotif() {
+  var p=document.getElementById('notifPanel'); p.classList.toggle('open');
+  notifications.filter(function(n){return !n.read;}).forEach(function(n){db.collection('notifications').doc(n.id).update({read:true}).catch(function(){});});
+  var dot=document.getElementById('notifDot'); if(dot)dot.classList.add('hidden');
+}
+
+/* ============================================================
+   MODALS
+============================================================ */
+function openModal(id)  { document.getElementById(id).classList.add('open');    document.body.style.overflow='hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.modal-overlay').forEach(function(o){
+    o.addEventListener('click', function(e){ if(e.target===o) closeModal(o.id); });
+  });
+});
+
+/* ============================================================
    DELETE CONFIRM
-===================================== */
-function confirmDel(id,col,msg) {
-  document.getElementById('confirmMsg').textContent=msg||'Are you sure?';
-  document.getElementById('confirmOkBtn').onclick=async()=>{
+============================================================ */
+function confirmDel(id, col, msg) {
+  document.getElementById('confirmMsg').textContent = msg||'Are you sure?';
+  document.getElementById('confirmOkBtn').onclick = async function() {
     await db.collection(col).doc(id).delete();
     toast('Deleted successfully.','success');
     closeModal('confirmModal');
@@ -1447,123 +1423,41 @@ function confirmDel(id,col,msg) {
   openModal('confirmModal');
 }
 
-/* =====================================
+/* ============================================================
    BADGE
-===================================== */
-function updateBadge(id,count) {
-  const el=document.getElementById('badge-'+id);
-  if(!el)return;
-  el.textContent=count;
-  el.classList.toggle('hidden',count===0);
+============================================================ */
+function updateBadge(id, count) {
+  var el = document.getElementById('badge-'+id); if(!el)return;
+  el.textContent=count; el.classList.toggle('hidden',count===0);
 }
 
-/* =====================================
-   MODAL HELPERS
-===================================== */
-function openModal(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
-function closeModal(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
-document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModal(o.id);}));
-
-/* =====================================
+/* ============================================================
    TOAST
-===================================== */
-function toast(msg,type='info') {
-  const icons={success:'✅',error:'❌',info:'ℹ️',warn:'⚠️'};
-  const t=document.createElement('div');
-  t.className=`toast ${type}`;
-  t.innerHTML=`<span style="font-size:17px;">${icons[type]||'🔔'}</span><span>${msg}</span>`;
+============================================================ */
+function toast(msg, type) {
+  type = type||'info';
+  var icons={success:'&#10003;',error:'&#10007;',info:'&#8505;',warn:'&#9888;'};
+  var t=document.createElement('div'); t.className='toast '+type;
+  t.innerHTML='<span style="font-size:17px;">'+(icons[type]||'&#128276;')+'</span><span>'+msg+'</span>';
   document.getElementById('toastContainer').appendChild(t);
-  setTimeout(()=>t.classList.add('show'),10);
-  setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),400);},4000);
+  setTimeout(function(){t.classList.add('show');},10);
+  setTimeout(function(){t.classList.remove('show');setTimeout(function(){t.remove();},400);},4000);
 }
 
-/* =====================================
+/* ============================================================
    UTILITIES
-===================================== */
-function fullName(s){return [s?.firstName,s?.lastName].filter(Boolean).join(' ')||s?.email||'';}
-function initials(s){return[(s?.firstName||'')[0],(s?.lastName||'')[0]].filter(Boolean).join('').toUpperCase()||'?';}
-function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
-function todayStr(){return new Date().toISOString().split('T')[0];}
-function fmtDate(d){if(!d)return'—';try{return new Date(d+'T00:00:00').toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'});}catch(_){return d;}}
-function fmtTime(s){if(!s)return'';try{return new Date(s).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',hour12:true});}catch(_){return s;}}
-function duration(a,b){try{const ms=new Date(b)-new Date(a);const h=Math.floor(ms/3600000);const m=Math.floor((ms%3600000)/60000);return`${h}h ${m}m`;}catch(_){return'—';}}
-function leaveEmoji(t){return{annual:'🌴',sick:'🤒',emergency:'🚨'}[t]||'📋';}
-function avColor(s){return['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#0ea5e9'][(s||'A').charCodeAt(0)%6];}
-function timeAgo(d){const s=Math.floor((Date.now()-d)/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
-function skeletons(n){return Array(n).fill(`<div class="stat-card"><div style="height:80px;background:linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);background-size:200%;animation:shimmer 1.5s infinite;border-radius:8px;"></div></div>`).join('');}
-@keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
-
-document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')handleLogin();});
-
-/* =====================================
-   RE-AUTH DIALOG (promise-based)
-===================================== */
-let _reAuthResolve = null;
-let _reAuthReject  = null;
-
-function showReAuthDialog() {
-  return new Promise((resolve, reject) => {
-    _reAuthResolve = resolve;
-    _reAuthReject  = () => { closeModal('reAuthModal'); resolve(null); };
-    document.getElementById('reAuthPass').value = '';
-    openModal('reAuthModal');
-    // Allow Enter key to confirm
-    document.getElementById('reAuthPass').onkeydown = (e) => { if (e.key === 'Enter') _reAuthConfirm(); };
-  });
-}
-
-function _reAuthConfirm() {
-  const pass = document.getElementById('reAuthPass').value;
-  if (!pass) { toast('Please enter your password.','error'); return; }
-  closeModal('reAuthModal');
-  if (_reAuthResolve) _reAuthResolve(pass);
-}
-
-
-/* =====================================
-   PIN KEYPAD LOGIC
-===================================== */
-window._pinValue  = '';
-window._loginRole = 'admin';
-
-function setLoginRole(role) {
-  window._loginRole = role;
-  window._pinValue  = '';
-  updatePinDots();
-  document.getElementById('tabAdmin').classList.toggle('active', role==='admin');
-  document.getElementById('tabEmp').classList.toggle('active',   role==='employee');
-  const emailWrap = document.getElementById('loginEmailWrap');
-  if (emailWrap) emailWrap.classList.toggle('hidden', role==='admin');
-  const hint = document.getElementById('loginHint');
-  if (hint) hint.textContent = role==='admin' ? 'Use your 4-digit admin PIN' : 'Enter your email and employee PIN';
-}
-
-function pinKey(digit) {
-  if (window._pinValue.length >= 4) return;
-  window._pinValue += digit;
-  updatePinDots();
-  if (window._pinValue.length === 4) setTimeout(handleLogin, 180);
-}
-function pinDel() {
-  window._pinValue = window._pinValue.slice(0,-1);
-  updatePinDots();
-}
-function pinClear() {
-  window._pinValue = '';
-  updatePinDots();
-}
-function updatePinDots() {
-  for (let i=0;i<4;i++) {
-    const dot = document.getElementById('pd'+i);
-    if (dot) dot.classList.toggle('filled', i < window._pinValue.length);
-  }
-}
-function shakePin() {
-  for (let i=0;i<4;i++) {
-    const dot=document.getElementById('pd'+i);
-    if (dot){dot.classList.add('error');setTimeout(()=>dot.classList.remove('error'),400);}
-  }
-}
+============================================================ */
+function fullName(s){ return [(s&&s.firstName)||(s&&s.email&&s.email.split('@')[0])||'', (s&&s.lastName)||''].filter(Boolean).join(' ').trim() || ''; }
+function initials(s){ return [((s&&s.firstName)||'')[0], ((s&&s.lastName)||'')[0]].filter(Boolean).join('').toUpperCase()||'?'; }
+function cap(s){ return s?s.charAt(0).toUpperCase()+s.slice(1):''; }
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+function fmtDate(d){ if(!d)return'—'; try{ return new Date(d+'T00:00:00').toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'}); }catch(_){return d;} }
+function fmtTime(s){ if(!s)return''; try{ return new Date(s).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',hour12:true}); }catch(_){return s;} }
+function duration(a,b){ try{ var ms=new Date(b)-new Date(a); return Math.floor(ms/3600000)+'h '+Math.floor((ms%3600000)/60000)+'m'; }catch(_){return '—';} }
+function leaveEmoji(t){ return {annual:'&#127796;',sick:'&#129298;',emergency:'&#128680;'}[t]||'&#128203;'; }
+function avColor(s){ return ['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#0ea5e9'][((s||'A').charCodeAt(0))%6]; }
+function timeAgo(d){ var s=Math.floor((Date.now()-d)/1000); if(s<60)return'just now'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
+function skeletons(n){ return Array(n).fill('<div class="stat-card"><div style="height:80px;background:#f0f0f0;border-radius:8px;"></div></div>').join(''); }
 
 </script>
 
