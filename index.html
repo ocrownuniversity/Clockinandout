@@ -2,1469 +2,1338 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>HRCore — Staff Management System</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>HRCore — Staff Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <style>
-/* ============================
-   ROOT & RESET
-============================ */
 :root{
-  --bg:#f4f5f7;--surface:#fff;--card:#fff;
-  --sidebar:#0f1623;--sidebar-text:#94a3b8;
-  --border:#e5e7eb;--accent:#2563eb;--accent-light:#eff6ff;
-  --accent2:#0ea5e9;--green:#10b981;--green-light:#ecfdf5;
-  --red:#ef4444;--red-light:#fef2f2;
-  --amber:#f59e0b;--amber-light:#fffbeb;
-  --purple:#8b5cf6;--purple-light:#f5f3ff;
-  --text:#111827;--muted:#6b7280;
-  --radius:12px;
-  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
-  --shadow-lg:0 8px 32px rgba(0,0,0,.12);
-  --sidebar-w:258px;
+  --bg:#f0f2f5;--card:#fff;--sidebar:#111827;
+  --border:#e5e7eb;--accent:#2563eb;--al:#eff6ff;
+  --green:#10b981;--gl:#ecfdf5;--red:#ef4444;--rl:#fef2f2;
+  --amber:#f59e0b;--aml:#fffbeb;--purple:#8b5cf6;--pl:#f5f3ff;
+  --sky:#0ea5e9;--text:#111827;--muted:#6b7280;
+  --r:12px;--sh:0 1px 4px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
+  --sidebar-w:252px;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
-
-/* ============================
-   UTILITY
-============================ */
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 .hidden{display:none!important;}
-.truncate{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
-
-/* ============================
-   BUTTONS
-============================ */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .18s;line-height:1;}
-.btn:active{transform:scale(.97);}
-.btn-sm{padding:7px 14px;font-size:13px;border-radius:7px;}
+a{color:inherit;text-decoration:none;}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border:none;border-radius:8px;font:600 14px/1 'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:opacity .15s,transform .1s;}
+.btn:active{transform:scale(.96);}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-green{background:var(--green);color:#fff;}
+.btn-red{background:var(--red);color:#fff;}
+.btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border);}
+.btn-ghost:hover{background:var(--bg);}
+.btn-sm{padding:7px 14px;font-size:13px;}
 .btn-xs{padding:5px 10px;font-size:12px;border-radius:6px;}
-.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:#1d4ed8;}
-.btn-green{background:var(--green);color:#fff;}.btn-green:hover{background:#059669;}
-.btn-red{background:var(--red);color:#fff;}.btn-red:hover{background:#dc2626;}
-.btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border);}.btn-ghost:hover{background:var(--bg);color:var(--text);}
 .btn-full{width:100%;}
-.btn-lg{padding:14px 28px;font-size:15px;border-radius:10px;}
-.btn-icon{padding:7px;border-radius:7px;background:var(--bg);border:1.5px solid var(--border);color:var(--muted);cursor:pointer;font-size:15px;transition:all .18s;}
-.btn-icon:hover{background:var(--accent-light);color:var(--accent);border-color:var(--accent);}
-
-/* ============================
-   FORMS
-============================ */
+.btn-lg{padding:14px;font-size:15px;border-radius:10px;}
+/* Fields */
 .field{margin-bottom:16px;}
 .field label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;}
-.field input,.field select,.field textarea{width:100%;padding:11px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:9px;color:var(--text);font-size:14px;outline:none;font-family:inherit;transition:border-color .18s,box-shadow .18s;}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+.field input,.field select,.field textarea{width:100%;padding:11px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:9px;color:var(--text);font:14px/1.4 'Plus Jakarta Sans',sans-serif;outline:none;transition:border-color .18s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);background:#fff;}
 .field textarea{resize:vertical;min-height:80px;}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;}
-
-/* ============================
-   BADGES
-============================ */
-.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
-.badge::before{content:'';width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.badge-green{background:var(--green-light);color:var(--green);}.badge-green::before{background:var(--green);}
-.badge-red{background:var(--red-light);color:var(--red);}.badge-red::before{background:var(--red);}
-.badge-amber{background:var(--amber-light);color:var(--amber);}.badge-amber::before{background:var(--amber);}
-.badge-blue{background:var(--accent-light);color:var(--accent);}.badge-blue::before{background:var(--accent);}
-.badge-purple{background:var(--purple-light);color:var(--purple);}.badge-purple::before{background:var(--purple);}
-.badge-gray{background:#f3f4f6;color:var(--muted);}.badge-gray::before{background:var(--muted);}
-
-/* ============================
-   CARDS
-============================ */
-.card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
-.card-pad{padding:24px;}
-.card-header{padding:16px 22px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.card-title{font-size:15px;font-weight:700;}
-.card-body{padding:18px 22px;}
-
-/* ============================
-   TOAST
-============================ */
-#toastContainer{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;}
-.toast{background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:13px 18px;font-size:14px;font-weight:500;box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:10px;transform:translateX(120%);transition:transform .35s cubic-bezier(.34,1.56,.64,1);min-width:260px;max-width:340px;}
-.toast.show{transform:translateX(0);}
-.toast.success{border-left:4px solid var(--green);}
-.toast.error{border-left:4px solid var(--red);}
-.toast.info{border-left:4px solid var(--accent);}
-.toast.warn{border-left:4px solid var(--amber);}
-
-/* ============================
-   MODAL
-============================ */
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .2s;}
-.modal-overlay.open{opacity:1;pointer-events:all;}
-.modal{background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg);transform:translateY(20px) scale(.97);transition:transform .25s;}
-.modal-overlay.open .modal{transform:translateY(0) scale(1);}
-.modal-header{padding:20px 24px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
-.modal-title{font-size:17px;font-weight:700;}
-.modal-close{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:4px;border-radius:6px;line-height:1;}
-.modal-close:hover{background:var(--bg);}
-.modal-body{padding:24px;}
-.modal-footer{padding:16px 24px;border-top:1.5px solid var(--border);display:flex;justify-content:flex-end;gap:10px;background:#fff;position:sticky;bottom:0;}
-
-/* ============================
-   AUTH SCREEN
-============================ */
-#authScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f1623 0%,#1e2d4a 100%);padding:20px;}
-.auth-wrap{display:flex;width:100%;max-width:900px;border-radius:20px;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.4);}
-.auth-left{flex:1;background:linear-gradient(150deg,#1d4ed8,#0ea5e9);padding:48px 40px;display:flex;flex-direction:column;justify-content:space-between;color:#fff;min-width:0;}
-.auth-brand{font-family:'Playfair Display',serif;font-size:30px;font-weight:800;margin-bottom:8px;letter-spacing:-1px;}
-.auth-brand span{color:#bfdbfe;}
-.auth-tagline{font-size:14px;opacity:.8;line-height:1.6;max-width:260px;}
-.auth-features{margin-top:auto;display:flex;flex-direction:column;gap:16px;}
-.auth-feat{display:flex;align-items:center;gap:12px;font-size:14px;opacity:.9;}
-.auth-feat-icon{width:36px;height:36px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.auth-right{flex:1;background:#fff;padding:48px 40px;display:flex;flex-direction:column;justify-content:center;min-width:0;}
-.auth-heading{font-size:24px;font-weight:800;margin-bottom:4px;}
-.auth-sub{color:var(--muted);font-size:14px;margin-bottom:28px;}
-
-/* ============================
-   APP SHELL
-============================ */
-#appShell{display:flex;min-height:100vh;}
-.sidebar{width:var(--sidebar-w);background:var(--sidebar);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:200;transition:transform .3s;overflow-y:auto;}
-.sidebar-brand{padding:22px 18px 14px;border-bottom:1px solid rgba(255,255,255,.06);}
-.brand-name{font-family:'Playfair Display',serif;font-size:21px;font-weight:800;color:#fff;letter-spacing:-.5px;}
-.brand-name span{color:#60a5fa;}
-.brand-role{font-size:10px;color:var(--sidebar-text);margin-top:2px;text-transform:uppercase;letter-spacing:1.2px;}
-.sidebar-nav{flex:1;padding:10px 8px;}
-.nav-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:rgba(148,163,184,.4);padding:12px 10px 5px;}
-.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:var(--sidebar-text);font-size:13.5px;font-weight:500;cursor:pointer;transition:all .18s;margin-bottom:2px;}
-.nav-item:hover{background:rgba(255,255,255,.07);color:#fff;}
-.nav-item.active{background:rgba(37,99,235,.4);color:#fff;font-weight:600;}
-.nav-icon{font-size:17px;width:22px;text-align:center;flex-shrink:0;}
-.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:50px;min-width:20px;text-align:center;}
-.sidebar-footer{padding:12px 8px;border-top:1px solid rgba(255,255,255,.06);}
-.user-block{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;}
-.user-avatar{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;flex-shrink:0;}
-.user-name{font-size:13px;font-weight:600;color:#fff;line-height:1.2;}
-.user-email{font-size:11px;color:var(--sidebar-text);line-height:1.2;}
-.btn-signout{width:100%;margin-top:8px;background:rgba(255,255,255,.06);color:var(--sidebar-text);border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;font-family:inherit;}
-.btn-signout:hover{background:rgba(239,68,68,.2);color:var(--red);}
-
-.main-content{margin-left:var(--sidebar-w);flex:1;min-width:0;}
-.topbar{background:#fff;border-bottom:1.5px solid var(--border);padding:0 24px;height:62px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
-.topbar-title{font-size:17px;font-weight:700;}
-.notif-btn{position:relative;background:none;border:none;font-size:20px;color:var(--muted);padding:6px;cursor:pointer;}
-.notif-dot{position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--red);border-radius:50%;border:2px solid #fff;}
-.hamburger{display:none;background:none;border:none;font-size:22px;color:var(--muted);padding:4px;cursor:pointer;}
-.page-content{padding:24px;max-width:1200px;}
-.page-fade{animation:pageFade .3s ease;}
-@keyframes pageFade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-
-/* ============================
-   STAT CARDS
-============================ */
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:24px;}
-.stat-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);padding:20px;position:relative;overflow:hidden;box-shadow:var(--shadow);}
-.stat-card::after{content:'';position:absolute;right:-12px;bottom:-12px;width:80px;height:80px;border-radius:50%;opacity:.07;}
-.stat-card.c-blue::after{background:var(--accent);}
-.stat-card.c-green::after{background:var(--green);}
-.stat-card.c-red::after{background:var(--red);}
-.stat-card.c-amber::after{background:var(--amber);}
-.stat-card.c-purple::after{background:var(--purple);}
-.stat-icon{font-size:21px;margin-bottom:10px;}
-.stat-num{font-size:30px;font-weight:800;line-height:1;}
-.stat-num.blue{color:var(--accent);}
-.stat-num.green{color:var(--green);}
-.stat-num.red{color:var(--red);}
-.stat-num.amber{color:var(--amber);}
-.stat-num.purple{color:var(--purple);}
-.stat-label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.7px;margin-top:4px;}
-
-/* ============================
-   TABLE
-============================ */
-.table-wrap{overflow-x:auto;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;}
+@media(max-width:560px){.fg2{grid-template-columns:1fr;}}
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:700;text-transform:uppercase;}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;}
+.b-green{background:var(--gl);color:var(--green);}.b-green::before{background:var(--green);}
+.b-red{background:var(--rl);color:var(--red);}.b-red::before{background:var(--red);}
+.b-amber{background:var(--aml);color:var(--amber);}.b-amber::before{background:var(--amber);}
+.b-blue{background:var(--al);color:var(--accent);}.b-blue::before{background:var(--accent);}
+.b-purple{background:var(--pl);color:var(--purple);}.b-purple::before{background:var(--purple);}
+.b-gray{background:#f3f4f6;color:var(--muted);}.b-gray::before{background:var(--muted);}
+/* Card */
+.card{background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);}
+.cp{padding:22px;}
+.ch{padding:15px 22px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.ct{font-size:15px;font-weight:700;}
+.cb{padding:18px 22px;}
+/* Toast */
+#TC{position:fixed;top:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.tst{background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;font-size:14px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.12);display:flex;align-items:center;gap:10px;transform:translateX(120%);transition:transform .3s cubic-bezier(.34,1.56,.64,1);min-width:240px;max-width:320px;}
+.tst.show{transform:translateX(0);}
+.tst.success{border-left:4px solid var(--green);}
+.tst.error{border-left:4px solid var(--red);}
+.tst.warn{border-left:4px solid var(--amber);}
+.tst.info{border-left:4px solid var(--accent);}
+/* Modal */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .2s;}
+.mo.open{opacity:1;pointer-events:all;}
+.md{background:#fff;border-radius:16px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;transform:scale(.96) translateY(16px);transition:transform .22s;}
+.mo.open .md{transform:scale(1) translateY(0);}
+.mh{padding:18px 22px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1;}
+.mt{font-size:16px;font-weight:700;}
+.mc{background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;line-height:1;padding:2px 6px;border-radius:6px;}
+.mc:hover{background:var(--bg);}
+.mb{padding:22px;}
+.mf{padding:14px 22px;border-top:1.5px solid var(--border);display:flex;justify-content:flex-end;gap:10px;position:sticky;bottom:0;background:#fff;}
+/* Auth */
+#AUTH{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f1623,#1e2d4a);padding:20px;}
+.aw{display:flex;width:100%;max-width:860px;border-radius:20px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.4);}
+.al{flex:1;background:linear-gradient(145deg,#1d4ed8,#0ea5e9);padding:44px 36px;display:flex;flex-direction:column;justify-content:space-between;color:#fff;}
+.abr{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;letter-spacing:-1px;margin-bottom:8px;}
+.abr span{color:#bfdbfe;}
+.atag{font-size:14px;opacity:.8;line-height:1.6;max-width:240px;}
+.afl{display:flex;flex-direction:column;gap:14px;margin-top:auto;}
+.afi{display:flex;align-items:center;gap:12px;font-size:13px;opacity:.9;}
+.afic{width:34px;height:34px;background:rgba(255,255,255,.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.ar{flex:1;background:#fff;padding:44px 36px;display:flex;flex-direction:column;justify-content:center;}
+.ah{font-size:24px;font-weight:800;margin-bottom:4px;}
+.as{color:var(--muted);font-size:14px;margin-bottom:24px;}
+@media(max-width:640px){.al{display:none;}.ar{padding:36px 26px;border-radius:20px;}.aw{border-radius:20px;}}
+/* Role tabs */
+.rtabs{display:flex;gap:6px;background:var(--bg);border-radius:10px;padding:4px;margin-bottom:20px;}
+.rtab{flex:1;padding:10px;border:none;background:transparent;border-radius:8px;color:var(--muted);font:600 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:all .18s;}
+.rtab.active{background:#fff;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.1);}
+/* PIN pad */
+.pin-dots{display:flex;gap:14px;justify-content:center;margin-bottom:20px;}
+.pd{width:14px;height:14px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .2s;}
+.pd.f{background:var(--accent);border-color:var(--accent);transform:scale(1.15);}
+.pd.e{background:var(--red);border-color:var(--red);animation:shk .35s ease;}
+@keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.pp{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.pk{padding:15px;border:1.5px solid var(--border);border-radius:11px;background:#fff;color:var(--text);font:700 20px/1 'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:all .15s;-webkit-tap-highlight-color:transparent;}
+.pk:hover{background:var(--al);border-color:var(--accent);color:var(--accent);}
+.pk:active{background:var(--accent);color:#fff;transform:scale(.92);}
+.pk-c{color:var(--amber);background:var(--aml);border-color:var(--aml);}
+.pk-d{color:var(--muted);}
+/* App shell */
+#APP{display:flex;min-height:100vh;}
+.sb{width:var(--sidebar-w);background:var(--sidebar);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:200;transition:transform .28s;overflow-y:auto;}
+.sb-brand{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.07);}
+.sb-logo{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#fff;letter-spacing:-.5px;}
+.sb-logo span{color:#60a5fa;}
+.sb-role{font-size:10px;color:#64748b;margin-top:2px;text-transform:uppercase;letter-spacing:1.2px;}
+.sb-nav{flex:1;padding:10px 8px;}
+.nav-sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:rgba(148,163,184,.4);padding:10px 10px 4px;}
+.ni{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:#94a3b8;font-size:13.5px;font-weight:500;cursor:pointer;transition:all .18s;margin-bottom:2px;-webkit-tap-highlight-color:transparent;}
+.ni:hover{background:rgba(255,255,255,.07);color:#fff;}
+.ni.active{background:rgba(37,99,235,.38);color:#fff;font-weight:600;}
+.ni-icon{font-size:16px;width:22px;text-align:center;flex-shrink:0;}
+.nb{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:50px;}
+.sb-foot{padding:12px 8px;border-top:1px solid rgba(255,255,255,.07);}
+.ub{display:flex;align-items:center;gap:10px;padding:10px 12px;}
+.uav{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--sky));display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;flex-shrink:0;}
+.un{font-size:13px;font-weight:600;color:#fff;line-height:1.2;}
+.ue{font-size:11px;color:#64748b;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:150px;}
+.sout{width:100%;margin-top:8px;background:rgba(255,255,255,.06);color:#94a3b8;border:none;border-radius:8px;padding:9px;font:600 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:all .18s;}
+.sout:hover{background:rgba(239,68,68,.2);color:var(--red);}
+.main{margin-left:var(--sidebar-w);flex:1;min-width:0;}
+.topbar{background:#fff;border-bottom:1.5px solid var(--border);padding:0 22px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.tb-title{font-size:17px;font-weight:700;}
+.hbg{display:none;background:none;border:none;font-size:22px;color:var(--muted);cursor:pointer;padding:4px;}
+.nb-btn{position:relative;background:none;border:none;font-size:20px;cursor:pointer;padding:6px;color:var(--muted);}
+.nb-dot{position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--red);border-radius:50%;border:2px solid #fff;}
+.pc{padding:22px;max-width:1180px;}
+@media(max-width:860px){.main{margin-left:0;}.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}.hbg{display:block;}.pc{padding:16px 14px;}}
+/* Stats */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:22px;}
+.sc{background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--sh);}
+.sc-i{font-size:20px;margin-bottom:10px;}
+.sc-n{font-size:28px;font-weight:800;line-height:1;}
+.sc-n.blue{color:var(--accent);}.sc-n.green{color:var(--green);}.sc-n.red{color:var(--red);}.sc-n.amber{color:var(--amber);}.sc-n.purple{color:var(--purple);}
+.sc-l{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.7px;margin-top:4px;}
+/* Table */
+.tw{overflow-x:auto;}
 table.dt{width:100%;border-collapse:collapse;font-size:14px;}
-table.dt th{background:#f9fafb;padding:11px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);border-bottom:1.5px solid var(--border);white-space:nowrap;}
-table.dt td{padding:12px 16px;border-bottom:1px solid var(--border);vertical-align:middle;}
+table.dt th{background:#f9fafb;padding:11px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);border-bottom:1.5px solid var(--border);white-space:nowrap;}
+table.dt td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
 table.dt tr:last-child td{border-bottom:none;}
 table.dt tbody tr:hover td{background:#fafbfc;}
-.emp-av{width:33px;height:33px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
-.no-data{text-align:center;padding:44px 20px;color:var(--muted);}
-.no-data-icon{font-size:38px;margin-bottom:10px;}
-.no-data p{font-size:14px;}
-
-/* ============================
-   CLOCK HERO
-============================ */
-.clock-hero{background:linear-gradient(135deg,#1e3a8a,#1d4ed8,#0ea5e9);border-radius:16px;padding:28px;color:#fff;margin-bottom:20px;position:relative;overflow:hidden;}
-.clock-hero::before{content:'';position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.05);}
-.clock-hero::after{content:'';position:absolute;right:60px;bottom:-80px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.04);}
-.clock-time{font-size:48px;font-weight:800;font-family:'Playfair Display',serif;letter-spacing:-2px;line-height:1;}
-.clock-date{font-size:13px;opacity:.75;margin-top:5px;margin-bottom:20px;}
-.clock-status{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);border-radius:50px;padding:7px 16px;font-size:13px;font-weight:600;margin-bottom:20px;backdrop-filter:blur(4px);}
-.c-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.c-dot.in{background:#4ade80;box-shadow:0 0 8px #4ade80;animation:blink 1.5s infinite;}
-.c-dot.out{background:rgba(255,255,255,.4);}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
-.clock-btns{display:flex;gap:10px;flex-wrap:wrap;}
-.btn-ci{background:#fff;color:var(--accent);font-weight:700;padding:12px 26px;border-radius:10px;border:none;font-size:14px;cursor:pointer;font-family:inherit;transition:all .18s;}
+.eav{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+.nd{text-align:center;padding:40px 20px;color:var(--muted);}
+.nd-i{font-size:36px;margin-bottom:10px;}
+/* Clock hero */
+.ch-hero{background:linear-gradient(135deg,#1e3a8a,#2563eb,#0ea5e9);border-radius:16px;padding:26px;color:#fff;margin-bottom:18px;position:relative;overflow:hidden;}
+.ch-hero::before{content:'';position:absolute;right:-50px;top:-50px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.06);}
+.ch-time{font-family:'Syne',sans-serif;font-size:46px;font-weight:800;letter-spacing:-2px;line-height:1;}
+.ch-date{font-size:13px;opacity:.75;margin-top:4px;margin-bottom:18px;}
+.ch-st{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.14);border-radius:50px;padding:6px 15px;font-size:13px;font-weight:600;margin-bottom:18px;}
+.cdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cdot.in{background:#4ade80;box-shadow:0 0 6px #4ade80;animation:blink 1.5s infinite;}
+.cdot.out{background:rgba(255,255,255,.4);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.ch-btns{display:flex;gap:10px;flex-wrap:wrap;}
+.btn-ci{background:#fff;color:var(--accent);font:700 14px 'Plus Jakarta Sans',sans-serif;padding:12px 24px;border-radius:10px;border:none;cursor:pointer;transition:all .18s;}
 .btn-ci:hover{background:#eff6ff;}
-.btn-co{background:rgba(255,255,255,.14);color:#fff;font-weight:700;padding:12px 26px;border-radius:10px;border:2px solid rgba(255,255,255,.3);font-size:14px;cursor:pointer;font-family:inherit;transition:all .18s;backdrop-filter:blur(4px);}
+.btn-co{background:rgba(255,255,255,.14);color:#fff;font:700 14px 'Plus Jakarta Sans',sans-serif;padding:12px 24px;border-radius:10px;border:2px solid rgba(255,255,255,.3);cursor:pointer;transition:all .18s;}
 .btn-co:hover{background:rgba(255,255,255,.24);}
-
-/* ============================
-   LEAVE CARDS
-============================ */
-.leave-card{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:13px;box-shadow:var(--shadow);}
-.l-type-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
-.lt-annual{background:var(--accent-light);}
-.lt-sick{background:var(--red-light);}
-.lt-emergency{background:var(--amber-light);}
-.leave-info{flex:1;min-width:0;}
-.leave-name{font-weight:700;font-size:14px;}
-.leave-meta{font-size:12px;color:var(--muted);margin-top:2px;}
-
-/* ============================
-   NOTIFICATION PANEL
-============================ */
-.notif-panel{position:fixed;top:62px;right:0;width:340px;max-height:calc(100vh - 62px);background:#fff;border-left:1.5px solid var(--border);overflow-y:auto;z-index:150;transform:translateX(100%);transition:transform .3s;box-shadow:var(--shadow-lg);}
-.notif-panel.open{transform:translateX(0);}
-.notif-header{padding:16px 18px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.notif-item{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;gap:11px;cursor:pointer;transition:background .15s;}
-.notif-item:hover{background:var(--bg);}
-.notif-item.unread{background:var(--accent-light);}
-.notif-item-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;background:var(--accent-light);}
-
-/* ============================
-   TIMELINE
-============================ */
-.timeline{padding:0;list-style:none;}
-.tl-item{display:flex;gap:13px;padding-bottom:16px;position:relative;}
-.tl-item::before{content:'';position:absolute;left:15px;top:30px;bottom:0;width:2px;background:var(--border);}
-.tl-item:last-child::before{display:none;}
-.tl-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;border:3px solid #fff;box-shadow:0 0 0 2px var(--border);}
-.tl-dot.in{background:var(--green-light);color:var(--green);}
-.tl-dot.out{background:var(--red-light);color:var(--red);}
-.tl-title{font-size:14px;font-weight:600;}
-.tl-meta{font-size:12px;color:var(--muted);margin-top:2px;}
-
-/* ============================
-   REPORT
-============================ */
-.report-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px;}
-.r-cell{background:#f9fafb;border-radius:10px;padding:14px;text-align:center;border:1.5px solid var(--border);}
-.r-cell-num{font-size:24px;font-weight:800;}
-.r-cell-label{font-size:11px;color:var(--muted);margin-top:3px;font-weight:600;}
-
-/* ============================
-   SECTION HEADER
-============================ */
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
-.section-title{font-size:17px;font-weight:700;}
-
-/* ============================
-   MISC
-============================ */
-.dept-tag{font-size:11px;background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:5px;font-weight:600;}
-.late-tag{font-size:11px;background:var(--amber-light);color:var(--amber);padding:2px 8px;border-radius:5px;font-weight:700;}
-.mobile-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:190;}
-.mobile-overlay.open{display:block;}
-::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px;}
-
-@media(max-width:900px){
-  .main-content{margin-left:0;}
-  .sidebar{transform:translateX(-100%);}
-  .sidebar.open{transform:translateX(0);}
-  .hamburger{display:block;}
-  .page-content{padding:16px 14px;}
-  .form-grid{grid-template-columns:1fr;}
-}
-@media(max-width:520px){
-  .auth-left{display:none;}
-  .auth-right{padding:36px 26px;border-radius:20px;}
-  .auth-wrap{border-radius:20px;}
-}
-
-/* ============================
-   ROLE TABS (Login)
-============================ */
-.role-tab{flex:1;padding:10px;border:none;background:transparent;border-radius:8px;color:var(--muted);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;}
-.role-tab.active{background:#fff;color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.1);}
-
-/* ============================
-   PIN PAD
-============================ */
-.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);background:transparent;transition:all .2s;}
-.pin-dot.filled{background:var(--accent);border-color:var(--accent);transform:scale(1.1);}
-.pin-dot.error{background:var(--red);border-color:var(--red);animation:shake .3s ease;}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
-.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px;}
-.pin-key{padding:16px;border:1.5px solid var(--border);border-radius:12px;background:#fff;color:var(--text);font-size:20px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s;line-height:1;}
-.pin-key:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent);}
-.pin-key:active{transform:scale(.93);background:var(--accent);color:#fff;}
-.pin-clear{color:var(--amber);border-color:var(--amber-light);background:var(--amber-light);}
-.pin-del{color:var(--muted);}
-
-/* dash grid responsive */
-.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px;}
-@media(max-width:680px){.dash-grid{grid-template-columns:1fr;}}
-.filter-label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;}
-.skeleton{background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200%;animation:shimmer 1.5s infinite;border-radius:8px;}
+/* Leave cards */
+.lc{background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:15px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;box-shadow:var(--sh);}
+.lci{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.lt-annual{background:var(--al);}.lt-sick{background:var(--rl);}.lt-emergency{background:var(--aml);}
+.ln{font-weight:700;font-size:14px;}
+.lm{font-size:12px;color:var(--muted);margin-top:2px;}
+/* Tags */
+.dept-tag{font-size:11px;background:var(--al);color:var(--accent);padding:2px 8px;border-radius:5px;font-weight:600;}
+.late-tag{font-size:11px;background:var(--aml);color:var(--amber);padding:2px 8px;border-radius:5px;font-weight:700;}
+/* Timeline */
+.tl{list-style:none;}
+.tli{display:flex;gap:12px;padding-bottom:14px;position:relative;}
+.tli::before{content:'';position:absolute;left:14px;top:28px;bottom:0;width:2px;background:var(--border);}
+.tli:last-child::before{display:none;}
+.tld{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:3px solid #fff;box-shadow:0 0 0 2px var(--border);}
+.tld.in{background:var(--gl);color:var(--green);}
+/* Reports */
+.rs{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:16px;}
+.rc{background:#f9fafb;border:1.5px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
+.rcn{font-size:22px;font-weight:800;}
+.rcl{font-size:11px;color:var(--muted);margin-top:3px;font-weight:600;}
+/* Notif panel */
+.np{position:fixed;top:60px;right:0;width:320px;max-height:calc(100vh - 60px);background:#fff;border-left:1.5px solid var(--border);overflow-y:auto;z-index:150;transform:translateX(100%);transition:transform .28s;box-shadow:var(--sh);}
+.np.open{transform:translateX(0);}
+.nph{padding:14px 18px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.npi{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;cursor:pointer;}
+.npi:hover{background:var(--bg);}
+.npi.unread{background:var(--al);}
+.npi-ic{width:34px;height:34px;border-radius:9px;background:var(--al);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+/* Mobile overlay */
+.mo-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:190;}
+.mo-bg.open{display:block;}
+/* Settings PIN inputs */
+.pin-input{letter-spacing:8px;font-size:22px;font-weight:700;text-align:center;}
+/* Section header */
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.st{font-size:17px;font-weight:700;}
+/* Dash grid */
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:640px){.dg{grid-template-columns:1fr;}}
+/* Btn-icon */
+.bic{padding:7px;border-radius:7px;background:var(--bg);border:1.5px solid var(--border);color:var(--muted);cursor:pointer;font-size:14px;transition:all .15s;}
+.bic:hover{background:var(--al);color:var(--accent);border-color:var(--accent);}
+/* Scrollbar */
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px;}
+/* Page fade */
+.pf{animation:pf .25s ease;}
+@keyframes pf{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 </style>
 </head>
 <body>
 
-<div id="toastContainer"></div>
+<div id="TC"></div>
+<div class="mo-bg" id="MOB"></div>
 
-<!-- Mobile overlay -->
-<div class="mobile-overlay" id="mobileOverlay"></div>
-
-<!-- ============================
-     AUTH SCREEN
-============================ -->
-<div id="authScreen">
-  <div class="auth-wrap">
-    <div class="auth-left">
+<!-- ===== AUTH SCREEN ===== -->
+<div id="AUTH">
+  <div class="aw">
+    <div class="al">
       <div>
-        <div class="auth-brand">HR<span>Core</span></div>
-        <p class="auth-tagline">Complete HR &amp; Staff Management for modern organisations.</p>
+        <div class="abr">HR<span>Core</span></div>
+        <p class="atag">Complete HR &amp; Staff Management System</p>
       </div>
-      <div class="auth-features">
-        <div class="auth-feat"><div class="auth-feat-icon">&#128101;</div><span>Employee Management</span></div>
-        <div class="auth-feat"><div class="auth-feat-icon">&#9201;</div><span>Attendance Tracking &amp; GPS</span></div>
-        <div class="auth-feat"><div class="auth-feat-icon">&#128203;</div><span>Leave Management</span></div>
-        <div class="auth-feat"><div class="auth-feat-icon">&#128202;</div><span>Reports &amp; Analytics</span></div>
+      <div class="afl">
+        <div class="afi"><div class="afic">👥</div><span>Employee Management</span></div>
+        <div class="afi"><div class="afic">⏱</div><span>Attendance &amp; GPS Tracking</span></div>
+        <div class="afi"><div class="afic">📋</div><span>Leave Management</span></div>
+        <div class="afi"><div class="afic">📊</div><span>Reports &amp; Analytics</span></div>
       </div>
     </div>
-    <div class="auth-right">
-      <div class="auth-heading">Welcome back</div>
-      <div class="auth-sub" id="authSub">Enter your 4-digit PIN to sign in</div>
+    <div class="ar">
+      <div class="ah">Welcome back</div>
+      <div class="as">Select your role and enter your PIN</div>
 
-      <!-- Role selector tabs -->
-      <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--bg);border-radius:10px;padding:4px;">
-        <button class="role-tab active" id="tabAdmin"    id="tabAdminBtn">&#128272; Admin / HR</button>
-        <button class="role-tab"        id="tabEmp"      id="tabEmpBtn">&#128100; Employee</button>
+      <div class="rtabs">
+        <button class="rtab active" id="TAB_ADMIN">🔐 Admin / HR</button>
+        <button class="rtab" id="TAB_EMP">👤 Employee</button>
       </div>
 
-      <!-- Employee email row (only shown for employee role) -->
-      <div class="field hidden" id="loginEmailWrap">
-        <label>Your Email Address</label>
-        <input type="email" id="loginEmail" placeholder="your@email.com"/>
+      <div class="field hidden" id="EMP_EMAIL_WRAP">
+        <label>Email Address</label>
+        <input type="email" id="EMP_EMAIL" placeholder="your@email.com"/>
       </div>
 
-      <!-- PIN dots display -->
-      <div style="display:flex;gap:12px;justify-content:center;margin-bottom:18px;" id="pinDots">
-        <div class="pin-dot" id="pd0"></div>
-        <div class="pin-dot" id="pd1"></div>
-        <div class="pin-dot" id="pd2"></div>
-        <div class="pin-dot" id="pd3"></div>
+      <div class="pin-dots" id="PIN_DOTS">
+        <div class="pd" id="D0"></div>
+        <div class="pd" id="D1"></div>
+        <div class="pd" id="D2"></div>
+        <div class="pd" id="D3"></div>
       </div>
 
-      <!-- PIN keypad -->
-      <div class="pin-pad">
-        <button class="pin-key" data-digit="1">1</button>
-        <button class="pin-key" data-digit="2">2</button>
-        <button class="pin-key" data-digit="3">3</button>
-        <button class="pin-key" data-digit="4">4</button>
-        <button class="pin-key" data-digit="5">5</button>
-        <button class="pin-key" data-digit="6">6</button>
-        <button class="pin-key" data-digit="7">7</button>
-        <button class="pin-key" data-digit="8">8</button>
-        <button class="pin-key" data-digit="9">9</button>
-        <button class="pin-key pin-clear" id="pinClearBtn">C</button>
-        <button class="pin-key" data-digit="0">0</button>
-        <button class="pin-key pin-del" id="pinDelBtn">&#9003;</button>
+      <div class="pp" id="PIN_PAD">
+        <button class="pk" data-v="1">1</button>
+        <button class="pk" data-v="2">2</button>
+        <button class="pk" data-v="3">3</button>
+        <button class="pk" data-v="4">4</button>
+        <button class="pk" data-v="5">5</button>
+        <button class="pk" data-v="6">6</button>
+        <button class="pk" data-v="7">7</button>
+        <button class="pk" data-v="8">8</button>
+        <button class="pk" data-v="9">9</button>
+        <button class="pk pk-c" id="PIN_CLR">C</button>
+        <button class="pk" data-v="0">0</button>
+        <button class="pk pk-d" id="PIN_DEL">⌫</button>
       </div>
 
-      <div style="margin-top:16px;">
-        <button class="btn btn-primary btn-full btn-lg" id="loginBtn">Sign In</button>
-      </div>
-      <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:12px;" id="loginHint">Admin PIN is set in the source code</p>
+      <p id="PIN_HINT" style="text-align:center;font-size:12px;color:var(--muted);margin-top:4px;">
+        Demo admin PIN: <strong>5678</strong>
+      </p>
     </div>
   </div>
 </div>
 
+<!-- ===== APP SHELL ===== -->
+<div id="APP" class="hidden">
 
-<!-- ============================
-     APP SHELL
-============================ -->
-<div id="appShell" class="hidden">
-
-  <nav class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-name">HR<span>Core</span></div>
-      <div class="brand-role" id="sidebarRole">—</div>
+  <nav class="sb" id="SIDEBAR">
+    <div class="sb-brand">
+      <div class="sb-logo">HR<span>Core</span></div>
+      <div class="sb-role" id="SB_ROLE">—</div>
     </div>
-    <div class="sidebar-nav" id="sidebarNav"></div>
-    <div class="sidebar-footer">
-      <div class="user-block">
-        <div class="user-avatar" id="sidebarAvatar">?</div>
+    <div class="sb-nav" id="SB_NAV"></div>
+    <div class="sb-foot">
+      <div class="ub">
+        <div class="uav" id="SB_AV">?</div>
         <div style="min-width:0;">
-          <div class="user-name truncate" id="sidebarName">—</div>
-          <div class="user-email truncate" id="sidebarEmail">—</div>
+          <div class="un" id="SB_NAME">—</div>
+          <div class="ue" id="SB_EMAIL">—</div>
         </div>
       </div>
-      <button class="btn-signout" id="btnSignOut">⏻  Sign Out</button>
+      <button class="sout" id="BTN_SIGNOUT">⏻  Sign Out</button>
     </div>
   </nav>
 
-  <div class="main-content">
+  <div class="main">
     <div class="topbar">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <button class="hamburger" id="hamburgerBtn">☰</button>
-        <div class="topbar-title" id="topbarTitle">Dashboard</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="hbg" id="BTN_HBG">☰</button>
+        <div class="tb-title" id="TB_TITLE">Dashboard</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <button class="notif-btn" id="notifBtn">
-          🔔<span class="notif-dot hidden" id="notifDot"></span>
+        <button class="nb-btn" id="BTN_NOTIF">
+          🔔
+          <span class="nb-dot hidden" id="NOTIF_DOT"></span>
         </button>
       </div>
     </div>
-    <div class="page-content" id="pageContent"></div>
+    <div class="pc" id="PAGE"></div>
   </div>
 
-  <!-- Notification Panel -->
-  <div class="notif-panel" id="notifPanel">
-    <div class="notif-header">
-      <strong style="font-size:15px;">Notifications</strong>
-      <button id="notifCloseBtn" style="background:none;border:none;font-size:20px;color:var(--muted);cursor:pointer;">×</button>
+  <div class="np" id="NOTIF_PANEL">
+    <div class="nph">
+      <strong style="font-size:14px;">Notifications</strong>
+      <button id="BTN_NOTIF_CLOSE" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);">×</button>
     </div>
-    <div id="notifList"><div class="no-data"><div class="no-data-icon">🔔</div><p>No notifications yet.</p></div></div>
+    <div id="NOTIF_LIST"><div class="nd"><div class="nd-i">🔔</div><p>No notifications yet.</p></div></div>
   </div>
 </div>
 
-<!-- ============================
-     MODALS
-============================ -->
-
-<!-- Employee Modal -->
-<div class="modal-overlay" id="empModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="empModalTitle">Add Employee</div>
-      <button class="modal-close" data-close="empModal">×</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="empModalId"/>
-      <div class="form-grid">
-        <div class="field"><label>First Name</label><input type="text" id="empFName" placeholder="John"/></div>
-        <div class="field"><label>Last Name</label><input type="text" id="empLName" placeholder="Doe"/></div>
+<!-- ===== MODALS ===== -->
+<!-- Employee modal -->
+<div class="mo" id="M_EMP">
+  <div class="md">
+    <div class="mh"><div class="mt" id="M_EMP_TITLE">Add Employee</div><button class="mc" data-close="M_EMP">×</button></div>
+    <div class="mb">
+      <input type="hidden" id="F_EMP_ID"/>
+      <div class="fg2">
+        <div class="field"><label>First Name</label><input type="text" id="F_FNAME" placeholder="John"/></div>
+        <div class="field"><label>Last Name</label><input type="text" id="F_LNAME" placeholder="Doe"/></div>
       </div>
-      <div class="field"><label>Email Address</label><input type="email" id="empEmail" placeholder="john@company.com"/></div>
-      <div class="form-grid">
-        <div class="field"><label>Phone Number</label><input type="tel" id="empPhone" placeholder="+234 800 000 0000"/></div>
-        <div class="field"><label>Employee ID</label><input type="text" id="empEmpId" placeholder="EMP-001"/></div>
+      <div class="field"><label>Email Address</label><input type="email" id="F_EMAIL" placeholder="john@company.com"/></div>
+      <div class="fg2">
+        <div class="field"><label>Phone</label><input type="tel" id="F_PHONE" placeholder="+234 800 000 0000"/></div>
+        <div class="field"><label>Employee ID</label><input type="text" id="F_EMPID" placeholder="EMP-001"/></div>
       </div>
-      <div class="form-grid">
+      <div class="fg2">
         <div class="field"><label>Department</label>
-          <select id="empDept">
-            <option value="">Select Department</option>
+          <select id="F_DEPT">
+            <option value="">Select…</option>
             <option>Engineering</option><option>Marketing</option><option>Finance</option>
             <option>Human Resources</option><option>Operations</option><option>Sales</option>
             <option>Customer Service</option><option>Management</option>
           </select>
         </div>
-        <div class="field"><label>Position / Role</label><input type="text" id="empPosition" placeholder="Software Engineer"/></div>
+        <div class="field"><label>Position</label><input type="text" id="F_POS" placeholder="Software Engineer"/></div>
       </div>
-      <div class="form-grid">
+      <div class="fg2">
         <div class="field"><label>System Role</label>
-          <select id="empRole">
+          <select id="F_ROLE">
             <option value="employee">Employee</option>
             <option value="manager">Manager</option>
             <option value="admin">Admin / HR</option>
           </select>
         </div>
-        <div class="field"><label>Start Date</label><input type="date" id="empStartDate"/></div>
+        <div class="field"><label>Start Date</label><input type="date" id="F_START"/></div>
       </div>
-      <div class="field"><label>Employee PIN <span style="color:var(--muted);font-size:10px;font-weight:400;">(4 digits, used to login)</span></label><input type="text" id="empPin" placeholder="e.g. 1234" maxlength="4" pattern="[0-9]{4}"/></div>
-      <div id="empPwField" class="field">
-        <label>Login Password <span style="color:var(--muted);text-transform:none;font-weight:400;font-size:10px;">(new employees only)</span></label>
-        <input type="password" id="empPassword" placeholder="Minimum 6 characters"/>
+      <div class="fg2">
+        <div class="field"><label>Login PIN (4 digits)</label><input type="text" id="F_PIN" placeholder="e.g. 1234" maxlength="4" class="pin-input"/></div>
+        <div class="field" id="F_PASS_WRAP"><label>Auth Password</label><input type="password" id="F_PASS" placeholder="Min 6 chars"/></div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" data-close="empModal">Cancel</button>
-      <button class="btn btn-primary" id="empSaveBtn">Save Employee</button>
+    <div class="mf">
+      <button class="btn btn-ghost" data-close="M_EMP">Cancel</button>
+      <button class="btn btn-primary" id="BTN_SAVE_EMP">Save Employee</button>
     </div>
   </div>
 </div>
 
-<!-- Leave Request Modal -->
-<div class="modal-overlay" id="leaveModal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Request Leave</div>
-      <button class="modal-close" data-close="leaveModal">×</button>
-    </div>
-    <div class="modal-body">
+<!-- Leave modal -->
+<div class="mo" id="M_LEAVE">
+  <div class="md">
+    <div class="mh"><div class="mt">Request Leave</div><button class="mc" data-close="M_LEAVE">×</button></div>
+    <div class="mb">
       <div class="field"><label>Leave Type</label>
-        <select id="leaveType">
+        <select id="F_LTYPE">
           <option value="annual">Annual Leave</option>
           <option value="sick">Sick Leave</option>
           <option value="emergency">Emergency Leave</option>
         </select>
       </div>
-      <div class="form-grid">
-        <div class="field"><label>Start Date</label><input type="date" id="leaveStart"/></div>
-        <div class="field"><label>End Date</label><input type="date" id="leaveEnd"/></div>
+      <div class="fg2">
+        <div class="field"><label>Start Date</label><input type="date" id="F_LSTART"/></div>
+        <div class="field"><label>End Date</label><input type="date" id="F_LEND"/></div>
       </div>
-      <div class="field"><label>Reason</label><textarea id="leaveReason" placeholder="Briefly describe the reason for your leave request…"></textarea></div>
+      <div class="field"><label>Reason</label><textarea id="F_LREASON" placeholder="Brief reason…"></textarea></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" data-close="leaveModal">Cancel</button>
-      <button class="btn btn-primary" id="submitLeaveBtn">Submit Request</button>
-    </div>
-  </div>
-</div>
-
-<!-- Confirm Delete Modal -->
-<div class="modal-overlay" id="confirmModal">
-  <div class="modal" style="max-width:400px;">
-    <div class="modal-header">
-      <div class="modal-title">Confirm Delete</div>
-      <button class="modal-close" data-close="confirmModal">×</button>
-    </div>
-    <div class="modal-body">
-      <p id="confirmMsg" style="font-size:15px;line-height:1.6;color:var(--muted);"></p>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" data-close="confirmModal">Cancel</button>
-      <button class="btn btn-red" id="confirmOkBtn">Delete</button>
+    <div class="mf">
+      <button class="btn btn-ghost" data-close="M_LEAVE">Cancel</button>
+      <button class="btn btn-primary" id="BTN_SUB_LEAVE">Submit Request</button>
     </div>
   </div>
 </div>
 
+<!-- Confirm modal -->
+<div class="mo" id="M_CONFIRM">
+  <div class="md" style="max-width:380px;">
+    <div class="mh"><div class="mt">Confirm</div><button class="mc" data-close="M_CONFIRM">×</button></div>
+    <div class="mb"><p id="M_CONFIRM_MSG" style="font-size:15px;color:var(--muted);line-height:1.6;"></p></div>
+    <div class="mf">
+      <button class="btn btn-ghost" data-close="M_CONFIRM">Cancel</button>
+      <button class="btn btn-red" id="BTN_CONFIRM_OK">Delete</button>
+    </div>
+  </div>
+</div>
 
-<!-- ============================
-     JAVASCRIPT
-============================ -->
 <script>
-/* ============================================================
-   CONFIG — Edit ADMIN_PIN to change your PIN anytime
-============================================================ */
-var ADMIN_PIN   = "5678";         // ← Default demo PIN
-var ADMIN_EMAIL = "oladejiridwanopeyemi@gmail.com";
-var ADMIN_PASS  = "HRCore_Admin_2024!";
-var ADMIN_EMAILS = [ADMIN_EMAIL];
+/* ================================================================
+   CONFIG — change ADMIN_PIN here or via Settings page in the app
+================================================================ */
+var ADMIN_PIN   = '5678';
+var ADMIN_EMAIL = 'oladejiridwanopeyemi@gmail.com';
+var ADMIN_PASS  = 'HRCore_Secure_2024!';
 
+/* ================================================================
+   FIREBASE
+================================================================ */
 firebase.initializeApp({
-  apiKey:"AIzaSyAYXG-6gFJ_QMZT__7A32Kogx4uVBMR1hc",
-  authDomain:"eduportal-dc55b.firebaseapp.com",
-  databaseURL:"https://eduportal-dc55b-default-rtdb.firebaseio.com",
-  projectId:"eduportal-dc55b",
-  storageBucket:"eduportal-dc55b.firebasestorage.app",
-  messagingSenderId:"168703430994",
-  appId:"1:168703430994:web:bad5baccd088d6ea9faa8b"
+  apiKey:'AIzaSyAYXG-6gFJ_QMZT__7A32Kogx4uVBMR1hc',
+  authDomain:'eduportal-dc55b.firebaseapp.com',
+  projectId:'eduportal-dc55b',
+  storageBucket:'eduportal-dc55b.firebasestorage.app',
+  messagingSenderId:'168703430994',
+  appId:'1:168703430994:web:bad5baccd088d6ea9faa8b'
 });
-var auth = firebase.auth();
 var db   = firebase.firestore();
+var auth = firebase.auth();
 
-/* ============================================================
+/* ================================================================
    STATE
-============================================================ */
-var currentUser  = null;
-var currentRole  = 'employee';
-var staffProfile = null;
-var allStaff     = [];
-var allAttendance= [];
-var allLeaves    = [];
-var notifications= [];
-var gpsCoords    = null;
-var unsubArr     = [];
-var clockTimer   = null;
-var _pin         = '';
-var _loginRole   = 'admin';
+================================================================ */
+var CU = null, CR = 'employee', SP = null;
+var staffList=[], attList=[], leaveList=[], notifList=[];
+var gps=null, clockTmr=null, unsubs=[];
+var loginRole='admin', pinVal='';
+var allDone=false;
 
-/* ============================================================
-   BOOT — wire up all events after DOM is ready
-============================================================ */
-document.addEventListener('DOMContentLoaded', function() {
-
-  /* ── PIN keypad ── */
-  document.querySelectorAll('.pin-key[data-digit]').forEach(function(btn) {
-    btn.addEventListener('click', function() { doPinKey(this.dataset.digit); });
-  });
-  var pc = document.getElementById('pinClearBtn');
-  var pd = document.getElementById('pinDelBtn');
-  var lb = document.getElementById('loginBtn');
-  var ta = document.getElementById('tabAdminBtn');
-  var te = document.getElementById('tabEmpBtn');
-  if (pc) pc.addEventListener('click', function(){ _pin=''; updateDots(); });
-  if (pd) pd.addEventListener('click', function(){ _pin=_pin.slice(0,-1); updateDots(); });
-  if (lb) lb.addEventListener('click', handleLogin);
-  if (ta) ta.addEventListener('click', function(){ setRole('admin'); });
-  if (te) te.addEventListener('click', function(){ setRole('employee'); });
-
-  /* ── Mobile sidebar overlay ── */
-  var mo = document.getElementById('mobileOverlay');
-  if (mo) mo.addEventListener('click', closeSidebar);
-
-  /* ── Modal close via data-close ── */
-  document.querySelectorAll('[data-close]').forEach(function(btn){
-    btn.addEventListener('click', function(){ closeModal(this.dataset.close); });
-  });
-  document.querySelectorAll('.modal-overlay').forEach(function(o){
-    o.addEventListener('click', function(e){ if(e.target===o) closeModal(o.id); });
-  });
-
-  /* ── Save employee ── */
-  var se = document.getElementById('empSaveBtn');
-  if (se) se.addEventListener('click', saveEmployee);
-
-  /* ── Submit leave ── */
-  var sl = document.getElementById('submitLeaveBtn');
-  if (sl) sl.addEventListener('click', submitLeave);
-  var nc = document.getElementById('notifCloseBtn');
-  if (nc) nc.addEventListener('click', toggleNotif);
+/* ================================================================
+   BOOT
+================================================================ */
+window.addEventListener('load', function() {
+  initPinPad();
+  initRoleTabs();
+  initSidebarBtn();
+  initNotifBtn();
+  initModalClose();
+  initFormBtns();
 });
 
-/* ============================================================
-   PIN FUNCTIONS
-============================================================ */
-function doPinKey(digit) {
-  if (_pin.length >= 4) return;
-  _pin += digit;
-  updateDots();
-  if (_pin.length === 4) setTimeout(handleLogin, 200);
-}
-
-function updateDots() {
-  for (var i=0; i<4; i++) {
-    var d = document.getElementById('pd'+i);
-    if (d) {
-      if (i < _pin.length) { d.classList.add('filled'); d.classList.remove('error'); }
-      else d.classList.remove('filled','error');
-    }
-  }
-}
-
-function shakeDots() {
-  for (var i=0; i<4; i++) {
-    var d = document.getElementById('pd'+i);
-    if (d) {
-      d.classList.add('filled','error');
-      (function(dot){ setTimeout(function(){ dot.classList.remove('filled','error'); },500); })(d);
-    }
-  }
-  setTimeout(function(){ _pin=''; updateDots(); }, 520);
-}
-
-function setRole(role) {
-  _loginRole = role; _pin=''; updateDots();
-  var ta=document.getElementById('tabAdminBtn'), te=document.getElementById('tabEmpBtn');
-  if(ta) ta.classList.toggle('active', role==='admin');
-  if(te) te.classList.toggle('active', role==='employee');
-  var ew=document.getElementById('loginEmailWrap');
-  if(ew) ew.classList.toggle('hidden', role==='admin');
-  var h=document.getElementById('loginHint');
-  if(h) h.textContent = role==='admin' ? 'Demo PIN: 5678' : 'Enter your email then 4-digit PIN';
-}
-
-/* ============================================================
-   LOGIN
-============================================================ */
-async function handleLogin() {
-  var btn = document.getElementById('loginBtn');
-  if (!btn || btn.disabled) return;
-  if (_pin.length < 4) { shakeDots(); showToast('Enter all 4 digits','error'); return; }
-  btn.disabled=true; btn.textContent='Signing in\u2026';
-
-  try {
-    if (_loginRole === 'admin') {
-      if (_pin !== ADMIN_PIN) { shakeDots(); showToast('Wrong PIN. Try again.','error'); btn.disabled=false; btn.textContent='Sign In'; return; }
-      try { await auth.signInWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS); }
-      catch(e) {
-        if (e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'||e.code==='auth/wrong-password')
-          await auth.createUserWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS);
-        else throw e;
-      }
-      showToast('Welcome, Admin!','success');
-    } else {
-      var emailEl = document.getElementById('loginEmail');
-      var email   = emailEl ? emailEl.value.trim().toLowerCase() : '';
-      if (!email) { showToast('Enter your email address','error'); btn.disabled=false; btn.textContent='Sign In'; return; }
-      var snap = await db.collection('staff').where('email','==',email).limit(1).get();
-      if (snap.empty) { shakeDots(); showToast('No account found','error'); btn.disabled=false; btn.textContent='Sign In'; return; }
-      var emp = Object.assign({id:snap.docs[0].id}, snap.docs[0].data());
-      if (_pin !== (emp.pin||'0000')) { shakeDots(); showToast('Wrong PIN','error'); btn.disabled=false; btn.textContent='Sign In'; return; }
-      var ep = emp.authPass || ('HRCEmp_'+emp.id.slice(0,8));
-      try { await auth.signInWithEmailAndPassword(emp.email, ep); }
-      catch(e) {
-        if (e.code==='auth/user-not-found'||e.code==='auth/invalid-credential')
-          await auth.createUserWithEmailAndPassword(emp.email, ep);
-        else throw e;
-      }
-      showToast('Welcome back!','success');
-    }
-  } catch(err) {
-    showToast('Error: '+(err.message||err.code),'error');
-    btn.disabled=false; btn.textContent='Sign In';
-  }
-}
-
-async function handleLogout() {
-  await auth.signOut();
-  _pin=''; updateDots();
-  showToast('Signed out','info');
-}
-
-/* ============================================================
-   AUTH LISTENER
-============================================================ */
-auth.onAuthStateChanged(async function(user) {
+auth.onAuthStateChanged(function(user) {
   if (user) {
-    currentUser = user;
-    await loadProfile();
-    showApp();
+    CU=user;
+    loadProfile().then(function(){ startApp(); });
   } else {
-    currentUser=null; staffProfile=null;
-    unsubArr.forEach(function(u){u();}); unsubArr=[];
-    if(clockTimer) clearInterval(clockTimer);
-    showAuth();
+    CU=null; SP=null;
+    unsubs.forEach(function(u){try{u();}catch(e){}});
+    unsubs=[];
+    if(clockTmr) clearInterval(clockTmr);
+    document.getElementById('AUTH').classList.remove('hidden');
+    document.getElementById('APP').classList.add('hidden');
+    pinVal=''; refreshDots();
   }
 });
 
-async function loadProfile() {
-  try {
-    var doc = await db.collection('staff').doc(currentUser.uid).get();
-    if (doc.exists) {
-      staffProfile = Object.assign({id:doc.id}, doc.data());
-      currentRole  = staffProfile.role || 'employee';
-    } else {
-      currentRole = (currentUser.email===ADMIN_EMAIL) ? 'admin' : 'employee';
-      staffProfile = {
-        id:currentUser.uid, uid:currentUser.uid,
-        firstName: currentUser.email.split('@')[0],
-        lastName:'', email:currentUser.email,
-        role:currentRole, department:'Management',
-        position: currentRole==='admin'?'HR Administrator':'Staff',
-        employeeID:'EMP-'+currentUser.uid.slice(0,6).toUpperCase(),
-        pin: currentRole==='admin' ? ADMIN_PIN : '0000'
-      };
-      try { await db.collection('staff').doc(currentUser.uid).set(Object.assign({},staffProfile,{createdAt:firebase.firestore.FieldValue.serverTimestamp()})); } catch(_){}
+/* ================================================================
+   PIN PAD — simple, reliable, no auto-submit bugs
+================================================================ */
+function initPinPad() {
+  /* Digit buttons */
+  document.querySelectorAll('.pk[data-v]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      var d = this.getAttribute('data-v');
+      if (pinVal.length < 4) {
+        pinVal += d;
+        refreshDots();
+        /* Only auto-submit when all 4 entered AND button press released */
+        if (pinVal.length === 4) {
+          setTimeout(doLogin, 300);
+        }
+      }
+    });
+  });
+
+  /* Clear */
+  document.getElementById('PIN_CLR').addEventListener('click', function(e) {
+    e.preventDefault();
+    pinVal = '';
+    refreshDots();
+  });
+
+  /* Delete */
+  document.getElementById('PIN_DEL').addEventListener('click', function(e) {
+    e.preventDefault();
+    pinVal = pinVal.slice(0, -1);
+    refreshDots();
+  });
+}
+
+function refreshDots() {
+  for (var i=0; i<4; i++) {
+    var d = document.getElementById('D'+i);
+    if (!d) return;
+    d.classList.remove('f','e');
+    if (i < pinVal.length) d.classList.add('f');
+  }
+}
+
+function shakeDots(cb) {
+  for (var i=0; i<4; i++) {
+    var d = document.getElementById('D'+i);
+    if (d) { d.classList.remove('f'); d.classList.add('e'); }
+  }
+  setTimeout(function() {
+    for (var i=0; i<4; i++) {
+      var d = document.getElementById('D'+i);
+      if (d) d.classList.remove('e');
     }
-  } catch(e){ currentRole='employee'; }
+    pinVal = '';
+    refreshDots();
+    if (cb) cb();
+  }, 500);
 }
 
-/* ============================================================
-   SCREENS
-============================================================ */
-function showAuth() {
-  document.getElementById('authScreen').classList.remove('hidden');
-  document.getElementById('appShell').classList.add('hidden');
+/* ================================================================
+   ROLE TABS
+================================================================ */
+function initRoleTabs() {
+  document.getElementById('TAB_ADMIN').addEventListener('click', function() {
+    loginRole='admin'; pinVal=''; refreshDots();
+    this.classList.add('active');
+    document.getElementById('TAB_EMP').classList.remove('active');
+    document.getElementById('EMP_EMAIL_WRAP').classList.add('hidden');
+    document.getElementById('PIN_HINT').innerHTML='Demo admin PIN: <strong>5678</strong>';
+  });
+  document.getElementById('TAB_EMP').addEventListener('click', function() {
+    loginRole='employee'; pinVal=''; refreshDots();
+    this.classList.add('active');
+    document.getElementById('TAB_ADMIN').classList.remove('active');
+    document.getElementById('EMP_EMAIL_WRAP').classList.remove('hidden');
+    document.getElementById('PIN_HINT').textContent='Enter your email then 4-digit PIN';
+  });
 }
-function showApp() {
-  document.getElementById('authScreen').classList.add('hidden');
-  document.getElementById('appShell').classList.remove('hidden');
+
+/* ================================================================
+   LOGIN
+================================================================ */
+function doLogin() {
+  if (pinVal.length < 4) return;
+  var enteredPin = pinVal;
+
+  if (loginRole === 'admin') {
+    if (enteredPin !== ADMIN_PIN) {
+      shakeDots();
+      toast('Wrong PIN — try again', 'error');
+      return;
+    }
+    /* Correct admin PIN — sign into Firebase silently */
+    auth.signInWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS)
+      .catch(function(e) {
+        if (e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'||e.code==='auth/wrong-password') {
+          return auth.createUserWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS);
+        }
+        throw e;
+      })
+      .catch(function(err) {
+        toast('Auth error: '+err.message, 'error');
+        pinVal=''; refreshDots();
+      });
+
+  } else {
+    /* Employee login */
+    var email = (document.getElementById('EMP_EMAIL').value||'').trim().toLowerCase();
+    if (!email) { toast('Enter your email first','error'); pinVal=''; refreshDots(); return; }
+
+    db.collection('staff').where('email','==',email).limit(1).get()
+      .then(function(snap) {
+        if (snap.empty) { shakeDots(); toast('No account for this email','error'); return; }
+        var emp = Object.assign({id:snap.docs[0].id}, snap.docs[0].data());
+        if (enteredPin !== (emp.pin||'0000')) { shakeDots(); toast('Wrong PIN','error'); return; }
+        var ep = emp.authPass||('HRCEmp_'+emp.id.slice(0,8));
+        return auth.signInWithEmailAndPassword(emp.email, ep)
+          .catch(function(e) {
+            if (e.code==='auth/user-not-found'||e.code==='auth/invalid-credential')
+              return auth.createUserWithEmailAndPassword(emp.email, ep);
+            throw e;
+          });
+      })
+      .catch(function(err) {
+        toast('Error: '+err.message,'error');
+        pinVal=''; refreshDots();
+      });
+  }
+}
+
+/* ================================================================
+   LOAD PROFILE
+================================================================ */
+function loadProfile() {
+  return db.collection('staff').doc(CU.uid).get()
+    .then(function(doc) {
+      if (doc.exists) {
+        SP = Object.assign({id:doc.id}, doc.data());
+        CR = SP.role||'employee';
+      } else {
+        CR = (CU.email===ADMIN_EMAIL) ? 'admin' : 'employee';
+        SP = {
+          id:CU.uid, uid:CU.uid,
+          firstName: CU.email.split('@')[0],
+          lastName:'', email:CU.email,
+          role:CR, department:'Management',
+          position: CR==='admin'?'HR Administrator':'Staff',
+          employeeID:'EMP-'+CU.uid.slice(0,6).toUpperCase(),
+          pin: CR==='admin' ? ADMIN_PIN : '0000'
+        };
+        return db.collection('staff').doc(CU.uid).set(Object.assign({},SP,{createdAt:firebase.firestore.FieldValue.serverTimestamp()}))
+          .catch(function(){});
+      }
+    })
+    .catch(function(e){ CR='employee'; });
+}
+
+/* ================================================================
+   START APP
+================================================================ */
+function startApp() {
+  document.getElementById('AUTH').classList.add('hidden');
+  document.getElementById('APP').classList.remove('hidden');
   buildSidebar();
-  getGPS();
-  loadNotifications();
-  navigateTo(currentRole==='employee'?'my-attendance':'hr-dashboard');
+  fetchGPS();
+  loadNotifs();
+  go(CR==='employee'?'my-attendance':'dashboard');
 }
 
-/* ============================================================
-   SIDEBAR NAV CONFIG
-============================================================ */
-var NAV_CFG = {
+/* ================================================================
+   SIDEBAR
+================================================================ */
+var NAVS = {
   admin:[
-    {s:'Overview'},{id:'hr-dashboard',icon:'📊',label:'HR Dashboard'},
-    {s:'Staff'},{id:'employees',icon:'👥',label:'Employees'},{id:'attendance',icon:'⏱',label:'Attendance'},
-    {s:'HR'},{id:'leaves-admin',icon:'📋',label:'Leave Requests',badge:'leavePending'},{id:'reports',icon:'📈',label:'Reports'},
-    {s:'My Account'},{id:'my-attendance',icon:'🙋',label:'My Attendance'},{id:'my-leaves',icon:'🌴',label:'My Leaves'},{id:'settings',icon:'⚙️',label:'Settings & PIN'},
+    {s:'Overview'},{p:'dashboard',i:'📊',l:'HR Dashboard'},
+    {s:'Staff'},{p:'employees',i:'👥',l:'Employees'},{p:'attendance',i:'⏱',l:'Attendance'},
+    {s:'HR'},{p:'leaves-admin',i:'📋',l:'Leave Requests',b:'lp'},{p:'reports',i:'📈',l:'Reports'},
+    {s:'My Work'},{p:'my-attendance',i:'🙋',l:'My Attendance'},{p:'my-leaves',i:'🌴',l:'My Leaves'},
+    {s:'System'},{p:'settings',i:'⚙️',l:'Settings & PIN'},
   ],
   manager:[
-    {s:'Overview'},{id:'hr-dashboard',icon:'📊',label:'Dashboard'},
-    {s:'Team'},{id:'attendance',icon:'⏱',label:'Attendance'},{id:'leaves-admin',icon:'📋',label:'Leaves',badge:'leavePending'},{id:'reports',icon:'📈',label:'Reports'},
-    {s:'My Account'},{id:'my-attendance',icon:'🙋',label:'My Attendance'},{id:'my-leaves',icon:'🌴',label:'My Leaves'},
+    {s:'Overview'},{p:'dashboard',i:'📊',l:'Dashboard'},
+    {s:'Team'},{p:'attendance',i:'⏱',l:'Attendance'},{p:'leaves-admin',i:'📋',l:'Leaves',b:'lp'},{p:'reports',i:'📈',l:'Reports'},
+    {s:'My Work'},{p:'my-attendance',i:'🙋',l:'My Attendance'},{p:'my-leaves',i:'🌴',l:'My Leaves'},
   ],
   employee:[
-    {s:'My Work'},{id:'my-attendance',icon:'⏱',label:'My Attendance'},{id:'my-leaves',icon:'🌴',label:'My Leaves'},
-  ],
+    {s:'My Work'},{p:'my-attendance',i:'⏱',l:'My Attendance'},{p:'my-leaves',i:'🌴',l:'My Leaves'},
+  ]
 };
-var PAGE_TITLES={'hr-dashboard':'HR Dashboard','employees':'Employees','attendance':'Attendance','leaves-admin':'Leave Requests','reports':'Reports','my-attendance':'My Attendance','my-leaves':'My Leaves','settings':'Settings & PIN'};
+var PT={'dashboard':'HR Dashboard','employees':'Employees','attendance':'Attendance','leaves-admin':'Leave Requests','reports':'Reports','my-attendance':'My Attendance','my-leaves':'My Leaves','settings':'Settings & PIN'};
 
 function buildSidebar() {
-  var items = NAV_CFG[currentRole]||NAV_CFG.employee;
-  var nav = '';
-  items.forEach(function(item){
-    if (item.s) { nav+='<div class="nav-section">'+item.s+'</div>'; return; }
-    nav+='<div class="nav-item" id="nav-'+item.id+'" data-page="'+item.id+'">'
-        +'<span class="nav-icon">'+item.icon+'</span><span>'+item.label+'</span>'
-        +(item.badge?'<span class="nav-badge hidden" id="badge-'+item.badge+'">0</span>':'')
-        +'</div>';
+  var items=NAVS[CR]||NAVS.employee, html='';
+  items.forEach(function(it) {
+    if(it.s){html+='<div class="nav-sec">'+it.s+'</div>';return;}
+    html+='<div class="ni" data-p="'+it.p+'"><span class="ni-icon">'+it.i+'</span><span>'+it.l+'</span>'+(it.b?'<span class="nb hidden" id="nb_'+it.b+'">0</span>':'')+'</div>';
   });
-  document.getElementById('sidebarNav').innerHTML = nav;
-  /* Wire nav clicks */
-  document.querySelectorAll('.nav-item[data-page]').forEach(function(el){
-    el.addEventListener('click', function(){ navigateTo(this.dataset.page); });
+  document.getElementById('SB_NAV').innerHTML=html;
+  document.querySelectorAll('.ni[data-p]').forEach(function(el){
+    el.addEventListener('click',function(){ go(this.dataset.p); });
   });
-  document.getElementById('sidebarName').textContent  = fullName(staffProfile)||'User';
-  document.getElementById('sidebarEmail').textContent = currentUser.email;
-  document.getElementById('sidebarAvatar').textContent= initials(staffProfile);
-  document.getElementById('sidebarRole').textContent  = roleLbl(currentRole);
-  /* Sign out btn */
-  var so = document.getElementById('btnSignOut');
-  if (so) { so.onclick=null; so.addEventListener('click',handleLogout); }
-  /* Hamburger */
-  var hb = document.getElementById('hamburgerBtn');
-  if (hb) { hb.onclick=null; hb.addEventListener('click',openSidebar); }
-  /* Notif */
-  var nb = document.getElementById('notifBtn');
-  if (nb) { nb.onclick=null; nb.addEventListener('click',toggleNotif); }
+  var fn=fname(SP); 
+  document.getElementById('SB_NAME').textContent=fn||'User';
+  document.getElementById('SB_EMAIL').textContent=CU.email;
+  document.getElementById('SB_AV').textContent=inits(SP);
+  document.getElementById('SB_ROLE').textContent=rlbl(CR);
 }
 
-function roleLbl(r){ return {admin:'Admin / HR',manager:'Manager',employee:'Employee'}[r]||r; }
+function initSidebarBtn() {
+  document.getElementById('BTN_HBG').addEventListener('click',function(){ document.getElementById('SIDEBAR').classList.add('open'); document.getElementById('MOB').classList.add('open'); });
+  document.getElementById('MOB').addEventListener('click',closeSB);
+  document.getElementById('BTN_SIGNOUT').addEventListener('click',function(){ auth.signOut(); });
+}
+function closeSB(){ document.getElementById('SIDEBAR').classList.remove('open'); document.getElementById('MOB').classList.remove('open'); }
 
-function navigateTo(page) {
-  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
-  var el=document.getElementById('nav-'+page);
+function initNotifBtn() {
+  document.getElementById('BTN_NOTIF').addEventListener('click',toggleNotif);
+  document.getElementById('BTN_NOTIF_CLOSE').addEventListener('click',toggleNotif);
+}
+
+function initModalClose() {
+  document.querySelectorAll('[data-close]').forEach(function(btn){
+    btn.addEventListener('click',function(){ closeM(this.dataset.close); });
+  });
+  document.querySelectorAll('.mo').forEach(function(o){
+    o.addEventListener('click',function(e){ if(e.target===o) closeM(o.id); });
+  });
+}
+
+function initFormBtns() {
+  document.getElementById('BTN_SAVE_EMP').addEventListener('click', saveEmp);
+  document.getElementById('BTN_SUB_LEAVE').addEventListener('click', subLeave);
+}
+
+function rlbl(r){return{admin:'Admin / HR',manager:'Manager',employee:'Employee'}[r]||r;}
+
+/* ================================================================
+   NAVIGATION
+================================================================ */
+function go(page) {
+  document.querySelectorAll('.ni[data-p]').forEach(function(n){n.classList.remove('active');});
+  var el=document.getElementById('ni_'+page)||document.querySelector('.ni[data-p="'+page+'"]');
   if(el) el.classList.add('active');
-  var tt=document.getElementById('topbarTitle');
-  if(tt) tt.textContent=PAGE_TITLES[page]||page;
-  closeSidebar();
-  var pc=document.getElementById('pageContent');
-  pc.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted);">Loading\u2026</div>';
-  var map={
-    'hr-dashboard':renderDashboard,'employees':renderEmployees,'attendance':renderAttendance,
-    'leaves-admin':renderLeavesAdmin,'reports':renderReports,
-    'my-attendance':renderMyAttendance,'my-leaves':renderMyLeaves,'settings':renderSettings
-  };
-  if(map[page]) map[page](); else pc.innerHTML='<div class="no-data"><p>Not found</p></div>';
+  var tt=document.getElementById('TB_TITLE'); if(tt) tt.textContent=PT[page]||page;
+  closeSB();
+  var pg=document.getElementById('PAGE');
+  pg.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted);">Loading…</div>';
+  var map={'dashboard':pgDash,'employees':pgEmp,'attendance':pgAtt,'leaves-admin':pgLeavesAdmin,'reports':pgReports,'my-attendance':pgMyAtt,'my-leaves':pgMyLeaves,'settings':pgSettings};
+  if(map[page]) map[page](); else pg.innerHTML='<div class="nd"><p>Not found</p></div>';
 }
 
-function openSidebar()  { document.getElementById('sidebar').classList.add('open'); document.getElementById('mobileOverlay').classList.add('open'); }
-function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('mobileOverlay').classList.remove('open'); }
-
-function getGPS() {
+/* ================================================================
+   GPS
+================================================================ */
+function fetchGPS() {
   if(!navigator.geolocation)return;
-  navigator.geolocation.getCurrentPosition(function(p){gpsCoords={lat:p.coords.latitude,lng:p.coords.longitude};},function(){},{enableHighAccuracy:true,timeout:8000});
+  navigator.geolocation.getCurrentPosition(function(p){gps={lat:p.coords.latitude,lng:p.coords.longitude};},function(){},{enableHighAccuracy:true,timeout:7000});
 }
 
-/* ============================================================
-   PAGE: HR DASHBOARD
-============================================================ */
-async function renderDashboard() {
-  var pc=document.getElementById('pageContent');
-  var today=todayStr();
-  pc.innerHTML='<div class="page-fade"><div class="stats-grid" id="dStats"><div class="stat-card c-blue"><div class="skeleton" style="height:70px;border-radius:8px;"></div></div><div class="stat-card c-green"><div class="skeleton" style="height:70px;border-radius:8px;"></div></div><div class="stat-card c-red"><div class="skeleton" style="height:70px;border-radius:8px;"></div></div><div class="stat-card c-amber"><div class="skeleton" style="height:70px;border-radius:8px;"></div></div><div class="stat-card c-purple"><div class="skeleton" style="height:70px;border-radius:8px;"></div></div></div><div class="dash-grid" id="dLower"><div class="card" style="min-height:180px;"></div><div class="card" style="min-height:180px;"></div></div></div>';
+/* ================================================================
+   PAGE: DASHBOARD
+================================================================ */
+function pgDash() {
+  var pg=document.getElementById('PAGE');
+  var today=ds();
+  pg.innerHTML='<div class="pf"><div class="sg" id="DSTATS"><div class="sc"><div style="height:70px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200%;border-radius:8px;"></div></div><div class="sc"><div style="height:70px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200%;border-radius:8px;"></div></div><div class="sc"><div style="height:70px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200%;border-radius:8px;"></div></div><div class="sc"><div style="height:70px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200%;border-radius:8px;"></div></div><div class="sc"><div style="height:70px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200%;border-radius:8px;"></div></div></div><div class="dg" id="DLOW"><div class="card" style="min-height:160px;"></div><div class="card" style="min-height:160px;"></div></div></div>';
 
-  var r=await Promise.all([
+  Promise.all([
     db.collection('staff').get(),
     db.collection('attendance').where('date','==',today).get(),
     db.collection('leaves').where('status','==','pending').get()
-  ]);
-  var total=r[0].size;
-  var att=r[1].docs.map(function(d){return d.data();});
-  var present=new Set(att.filter(function(x){return x.clockIn;}).map(function(x){return x.uid;})).size;
-  var late=new Set(att.filter(function(x){return x.late;}).map(function(x){return x.uid;})).size;
-  var pending=r[2].size;
-  var absent=Math.max(0,total-present);
-  updateBadge('leavePending',pending);
+  ]).then(function(r) {
+    var total=r[0].size;
+    var att=r[1].docs.map(function(d){return d.data();});
+    var present=new Set(att.filter(function(x){return x.clockIn;}).map(function(x){return x.uid;})).size;
+    var late=new Set(att.filter(function(x){return x.late;}).map(function(x){return x.uid;})).size;
+    var pending=r[2].size;
+    setbadge('lp',pending);
+    var ds_el=document.getElementById('DSTATS'); if(!ds_el)return;
+    ds_el.innerHTML=
+      sc('📊',total,'Total Staff','blue')+
+      sc('✅',present,'Present Today','green')+
+      sc('❌',Math.max(0,total-present),'Absent Today','red')+
+      sc('⏰',late,'Late Today','amber')+
+      sc('📋',pending,'Pending Leaves','purple');
 
-  document.getElementById('dStats').innerHTML=
-    statCard('c-blue','👥',total,'Total Staff','blue')+
-    statCard('c-green','✅',present,'Present Today','green')+
-    statCard('c-red','❌',absent,'Absent Today','red')+
-    statCard('c-amber','⏰',late,'Late Arrivals','amber')+
-    statCard('c-purple','📋',pending,'Pending Leaves','purple');
-
-  var r2=await Promise.all([
-    db.collection('attendance').where('date','==',today).orderBy('clockIn','desc').limit(8).get(),
-    db.collection('leaves').where('status','==','pending').orderBy('createdAt','desc').limit(5).get()
-  ]);
-  var recAtt=r2[0].docs.map(function(d){return Object.assign({id:d.id},d.data());});
-  var pendLv=r2[1].docs.map(function(d){return Object.assign({id:d.id},d.data());});
-
-  document.getElementById('dLower').innerHTML=
-    '<div class="card">'
-    +'<div class="card-header"><div class="card-title">Today\'s Clock-Ins</div>'
-    +'<button class="btn btn-ghost btn-sm" onclick="navigateTo(\'attendance\')">View All</button></div>'
-    +(recAtt.length===0?'<div class="no-data"><div class="no-data-icon">⏱</div><p>No clock-ins yet today.</p></div>'
-      :'<div class="table-wrap"><table class="dt"><thead><tr><th>Employee</th><th>Time</th><th>Status</th></tr></thead><tbody>'
-      +recAtt.map(function(r){return '<tr><td><b style="font-size:13px;">'+(r.employeeName||'—')+'</b><br><span style="font-size:11px;color:var(--muted);">'+(r.department||'')+'</span></td><td style="font-size:13px;">'+fmtTime(r.clockIn)+'</td><td>'+(r.late?'<span class="late-tag">LATE</span>':'<span class="badge badge-green">On Time</span>')+'</td></tr>';}).join('')
-      +'</tbody></table></div>')
-    +'</div>'
-    +'<div class="card">'
-    +'<div class="card-header"><div class="card-title">Pending Leaves</div>'
-    +'<button class="btn btn-ghost btn-sm" onclick="navigateTo(\'leaves-admin\')">View All</button></div>'
-    +'<div style="padding:10px;">'
-    +(pendLv.length===0?'<div class="no-data"><div class="no-data-icon">📋</div><p>No pending requests.</p></div>'
-      :pendLv.map(function(l){return '<div class="leave-card">'
-        +'<div class="l-type-icon lt-'+l.leaveType+'">'+leaveEmoji(l.leaveType)+'</div>'
-        +'<div class="leave-info"><div class="leave-name">'+l.employeeName+'</div>'
-        +'<div class="leave-meta">'+cap(l.leaveType)+' · '+fmtDate(l.startDate)+' – '+fmtDate(l.endDate)+'</div>'
+    return Promise.all([
+      db.collection('attendance').where('date','==',today).orderBy('clockIn','desc').limit(8).get(),
+      db.collection('leaves').where('status','==','pending').orderBy('createdAt','desc').limit(5).get()
+    ]);
+  }).then(function(r2) {
+    if(!r2) return;
+    var dl=document.getElementById('DLOW'); if(!dl)return;
+    var recAtt=r2[0].docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    var pendLv=r2[1].docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    dl.innerHTML=
+      '<div class="card"><div class="ch"><div class="ct">Today\'s Clock-Ins</div>'
+      +'<button class="btn btn-ghost btn-sm" onclick="go(\'attendance\')">View All</button></div>'
+      +(recAtt.length?'<div class="tw"><table class="dt"><thead><tr><th>Employee</th><th>Time</th><th>Status</th></tr></thead><tbody>'
+        +recAtt.map(function(r){return '<tr><td><b style="font-size:13px;">'+(r.employeeName||'—')+'</b><div style="font-size:11px;color:var(--muted);">'+(r.department||'')+'</div></td><td style="font-size:13px;">'+ft(r.clockIn)+'</td><td>'+(r.late?'<span class="late-tag">LATE</span>':'<span class="badge b-green">On Time</span>')+'</td></tr>';}).join('')
+        +'</tbody></table></div>'
+        :'<div class="nd"><div class="nd-i">⏱</div><p>No clock-ins yet today.</p></div>')
+      +'</div>'
+      +'<div class="card"><div class="ch"><div class="ct">Pending Leave Requests</div>'
+      +'<button class="btn btn-ghost btn-sm" onclick="go(\'leaves-admin\')">View All</button></div>'
+      +'<div style="padding:10px;">'
+      +(pendLv.length?pendLv.map(function(l){return '<div class="lc">'
+        +'<div class="lci lt-'+l.leaveType+'">'+lei(l.leaveType)+'</div>'
+        +'<div style="flex:1;"><div class="ln">'+l.employeeName+'</div>'
+        +'<div class="lm">'+cap(l.leaveType)+' · '+fd(l.startDate)+' – '+fd(l.endDate)+'</div>'
         +'<div style="display:flex;gap:6px;margin-top:8px;">'
-        +'<button class="btn btn-green btn-xs" onclick="handleLeave(\''+l.id+'\',\'approved\')">✓ Approve</button>'
-        +'<button class="btn btn-red btn-xs" onclick="handleLeave(\''+l.id+'\',\'rejected\')">✕ Reject</button>'
-        +'</div></div></div>';}).join(''))
-    +'</div></div>';
+        +'<button class="btn btn-green btn-xs" onclick="apvLeave(\''+l.id+'\',\'approved\')">✓ Approve</button>'
+        +'<button class="btn btn-red btn-xs" onclick="apvLeave(\''+l.id+'\',\'rejected\')">✕ Reject</button>'
+        +'</div></div></div>';}).join('')
+        :'<div class="nd"><div class="nd-i">📋</div><p>No pending requests.</p></div>')
+      +'</div></div>';
+  }).catch(function(e){ toast('Dashboard error: '+e.message,'error'); });
 }
-function statCard(cls,icon,num,label,col){
-  return '<div class="stat-card '+cls+'"><div class="stat-icon">'+icon+'</div><div class="stat-num '+col+'">'+num+'</div><div class="stat-label">'+label+'</div></div>';
-}
+function sc(icon,num,lbl,col){return '<div class="sc"><div class="sc-i">'+icon+'</div><div class="sc-n '+col+'">'+num+'</div><div class="sc-l">'+lbl+'</div></div>';}
 
-/* ============================================================
+/* ================================================================
    PAGE: EMPLOYEES
-============================================================ */
-async function renderEmployees() {
-  var pc=document.getElementById('pageContent');
-  pc.innerHTML='<div class="page-fade">'
-    +'<div class="section-header"><div><div class="section-title">All Employees</div></div>'
-    +'<button class="btn btn-primary" id="addEmpBtn">+ Add Employee</button></div>'
+================================================================ */
+function pgEmp() {
+  var pg=document.getElementById('PAGE');
+  pg.innerHTML='<div class="pf">'
+    +'<div class="sh"><div><div class="st">All Employees</div></div>'
+    +'<button class="btn btn-primary" id="BTN_ADD_EMP">+ Add Employee</button></div>'
     +'<div class="card" style="margin-bottom:14px;"><div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;">'
-    +'<input type="text" id="empSearch" placeholder="🔍 Search name, ID, email…" style="flex:1;min-width:180px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"/>'
-    +'<select id="empDeptFilter" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;">'
+    +'<input id="EMP_SRCH" placeholder="🔍 Search name, ID, email…" style="flex:1;min-width:180px;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/>'
+    +'<select id="EMP_DEPT" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;">'
     +'<option value="">All Departments</option>'
     +'<option>Engineering</option><option>Marketing</option><option>Finance</option>'
     +'<option>Human Resources</option><option>Operations</option><option>Sales</option>'
-    +'<option>Customer Service</option><option>Management</option></select></div></div>'
-    +'<div class="card"><div class="table-wrap"><table class="dt">'
-    +'<thead><tr><th>Employee</th><th>ID</th><th>Department</th><th>Position</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead>'
-    +'<tbody id="empTbody"></tbody></table></div></div></div>';
+    +'<option>Customer Service</option><option>Management</option>'
+    +'</select></div></div>'
+    +'<div class="card"><div class="tw"><table class="dt">'
+    +'<thead><tr><th>Employee</th><th>ID</th><th>Department</th><th>Position</th><th>Role</th><th>Phone</th><th>PIN</th><th></th></tr></thead>'
+    +'<tbody id="EMP_BODY"></tbody></table></div></div></div>';
 
-  document.getElementById('addEmpBtn').addEventListener('click', function(){ openEmpModal(null); });
-  document.getElementById('empSearch').addEventListener('input', filterEmpTable);
-  document.getElementById('empDeptFilter').addEventListener('change', filterEmpTable);
+  document.getElementById('BTN_ADD_EMP').addEventListener('click',function(){ openEmpModal(null); });
+  document.getElementById('EMP_SRCH').addEventListener('input', renderEmpTable);
+  document.getElementById('EMP_DEPT').addEventListener('change', renderEmpTable);
 
-  var unsub=db.collection('staff').orderBy('firstName').onSnapshot(function(snap){
-    allStaff=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    filterEmpTable();
+  var u=db.collection('staff').orderBy('firstName').onSnapshot(function(snap){
+    staffList=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    renderEmpTable();
   });
-  unsubArr.push(unsub);
+  unsubs.push(u);
 }
 
-function filterEmpTable() {
-  var q=(document.getElementById('empSearch')?document.getElementById('empSearch').value:'').toLowerCase();
-  var dept=document.getElementById('empDeptFilter')?document.getElementById('empDeptFilter').value:'';
-  var list=allStaff.filter(function(s){
-    return (!q||fullName(s).toLowerCase().includes(q)||(s.employeeID||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q))
+function renderEmpTable() {
+  var q=(document.getElementById('EMP_SRCH')||{value:''}).value.toLowerCase();
+  var dept=(document.getElementById('EMP_DEPT')||{value:''}).value;
+  var list=staffList.filter(function(s){
+    return (!q||(fname(s).toLowerCase().includes(q)||(s.employeeID||'').toLowerCase().includes(q)||(s.email||'').toLowerCase().includes(q)))
         && (!dept||s.department===dept);
   });
-  var tb=document.getElementById('empTbody'); if(!tb)return;
-  if(!list.length){tb.innerHTML='<tr><td colspan="7"><div class="no-data"><div class="no-data-icon">🔍</div><p>No employees found.</p></div></td></tr>';return;}
-  tb.innerHTML=list.map(function(s){
-    return '<tr>'
-      +'<td><div style="display:flex;align-items:center;gap:10px;">'
-      +'<div class="emp-av" style="background:'+avColor(s.firstName)+'">'+initials(s)+'</div>'
-      +'<div><div style="font-weight:600;">'+fullName(s)+'</div><div style="font-size:12px;color:var(--muted);">'+(s.email||'')+'</div></div></div></td>'
-      +'<td><span style="font-family:monospace;font-size:12px;color:var(--accent);">'+(s.employeeID||'—')+'</span></td>'
-      +'<td><span class="dept-tag">'+(s.department||'—')+'</span></td>'
-      +'<td style="font-size:13px;">'+(s.position||'—')+'</td>'
-      +'<td><span class="badge badge-'+roleBadge(s.role)+'">'+roleLbl(s.role||'employee')+'</span></td>'
-      +'<td style="font-size:13px;color:var(--muted);">'+(s.phone||'—')+'</td>'
-      +'<td><div style="display:flex;gap:6px;">'
-      +'<button class="btn-icon" data-edit="'+s.id+'" title="Edit">✏️</button>'
-      +'<button class="btn-icon" data-del="'+s.id+'" data-name="'+fullName(s).replace(/"/g,'&quot;')+'" title="Delete">🗑️</button>'
-      +'</div></td></tr>';
-  }).join('');
-  /* Wire edit/delete buttons */
-  document.querySelectorAll('[data-edit]').forEach(function(b){ b.addEventListener('click',function(){ openEmpModal(this.dataset.edit); }); });
-  document.querySelectorAll('[data-del]').forEach(function(b){ b.addEventListener('click',function(){ confirmDel(this.dataset.del,'staff','Delete '+this.dataset.name+'?'); }); });
+  var tb=document.getElementById('EMP_BODY'); if(!tb)return;
+  if(!list.length){tb.innerHTML='<tr><td colspan="8"><div class="nd"><div class="nd-i">🔍</div><p>No employees found.</p></div></td></tr>';return;}
+  tb.innerHTML=list.map(function(s){return '<tr>'
+    +'<td><div style="display:flex;align-items:center;gap:10px;">'
+    +'<div class="eav" style="background:'+avc(s.firstName)+'">'+inits(s)+'</div>'
+    +'<div><b>'+fname(s)+'</b><div style="font-size:12px;color:var(--muted);">'+(s.email||'')+'</div></div></div></td>'
+    +'<td><span style="font-family:monospace;font-size:12px;color:var(--accent);">'+(s.employeeID||'—')+'</span></td>'
+    +'<td><span class="dept-tag">'+(s.department||'—')+'</span></td>'
+    +'<td style="font-size:13px;">'+(s.position||'—')+'</td>'
+    +'<td><span class="badge '+(s.role==='admin'?'b-purple':s.role==='manager'?'b-blue':'b-gray')+'">'+rlbl(s.role||'employee')+'</span></td>'
+    +'<td style="font-size:13px;color:var(--muted);">'+(s.phone||'—')+'</td>'
+    +'<td><span style="font-family:monospace;background:var(--bg);border-radius:5px;padding:2px 7px;font-size:12px;">'+(s.pin||'—')+'</span></td>'
+    +'<td><div style="display:flex;gap:6px;">'
+    +'<button class="bic" data-eid="'+s.id+'" data-act="edit">✏️</button>'
+    +'<button class="bic" data-eid="'+s.id+'" data-name="'+fname(s)+'" data-act="del">🗑️</button>'
+    +'</div></td></tr>';}).join('');
+  document.querySelectorAll('.bic[data-act="edit"]').forEach(function(b){ b.addEventListener('click',function(){ openEmpModal(this.dataset.eid); }); });
+  document.querySelectorAll('.bic[data-act="del"]').forEach(function(b){ b.addEventListener('click',function(){ confirmDel(this.dataset.eid,'staff','Delete '+this.dataset.name+'?'); }); });
 }
-function roleBadge(r){return{admin:'purple',manager:'blue',employee:'gray'}[r]||'gray';}
 
 function openEmpModal(id) {
-  ['empFName','empLName','empEmail','empPhone','empEmpId','empPosition','empPassword','empPin'].forEach(function(i){var el=document.getElementById(i);if(el)el.value='';});
-  document.getElementById('empDept').value='';
-  document.getElementById('empRole').value='employee';
-  document.getElementById('empStartDate').value='';
-  document.getElementById('empModalId').value=id||'';
-  document.getElementById('empPwField').classList.toggle('hidden',!!id);
-  document.getElementById('empModalTitle').textContent=id?'Edit Employee':'Add Employee';
-  document.getElementById('empSaveBtn').textContent=id?'Save Changes':'Save Employee';
+  ['F_FNAME','F_LNAME','F_EMAIL','F_PHONE','F_EMPID','F_POS','F_PASS','F_PIN'].forEach(function(i){var el=document.getElementById(i);if(el)el.value='';});
+  document.getElementById('F_DEPT').value='';
+  document.getElementById('F_ROLE').value='employee';
+  document.getElementById('F_START').value='';
+  document.getElementById('F_EMP_ID').value=id||'';
+  document.getElementById('F_PASS_WRAP').classList.toggle('hidden',!!id);
+  document.getElementById('M_EMP_TITLE').textContent=id?'Edit Employee':'Add Employee';
+  document.getElementById('BTN_SAVE_EMP').textContent=id?'Save Changes':'Save Employee';
   if(id){
-    var s=allStaff.find(function(e){return e.id===id;});
+    var s=staffList.find(function(e){return e.id===id;});
     if(s){
-      document.getElementById('empFName').value=s.firstName||'';
-      document.getElementById('empLName').value=s.lastName||'';
-      document.getElementById('empEmail').value=s.email||'';
-      document.getElementById('empPhone').value=s.phone||'';
-      document.getElementById('empEmpId').value=s.employeeID||'';
-      document.getElementById('empDept').value=s.department||'';
-      document.getElementById('empPosition').value=s.position||'';
-      document.getElementById('empRole').value=s.role||'employee';
-      document.getElementById('empStartDate').value=s.startDate||'';
-      document.getElementById('empPin').value=s.pin||'1234';
+      document.getElementById('F_FNAME').value=s.firstName||'';
+      document.getElementById('F_LNAME').value=s.lastName||'';
+      document.getElementById('F_EMAIL').value=s.email||'';
+      document.getElementById('F_PHONE').value=s.phone||'';
+      document.getElementById('F_EMPID').value=s.employeeID||'';
+      document.getElementById('F_DEPT').value=s.department||'';
+      document.getElementById('F_POS').value=s.position||'';
+      document.getElementById('F_ROLE').value=s.role||'employee';
+      document.getElementById('F_START').value=s.startDate||'';
+      document.getElementById('F_PIN').value=s.pin||'1234';
     }
   }
-  openModal('empModal');
+  openM('M_EMP');
 }
 
-async function saveEmployee() {
-  var id=document.getElementById('empModalId').value;
-  var firstName=document.getElementById('empFName').value.trim();
-  var lastName=document.getElementById('empLName').value.trim();
-  var email=document.getElementById('empEmail').value.trim();
-  var phone=document.getElementById('empPhone').value.trim();
-  var employeeID=document.getElementById('empEmpId').value.trim();
-  var department=document.getElementById('empDept').value;
-  var position=document.getElementById('empPosition').value.trim();
-  var role=document.getElementById('empRole').value;
-  var startDate=document.getElementById('empStartDate').value;
-  var password=document.getElementById('empPassword').value;
-  var pin=document.getElementById('empPin').value.trim()||'1234';
-  if(!firstName||!lastName||!email){showToast('First name, last name, and email required','error');return;}
-  var btn=document.getElementById('empSaveBtn');
+function saveEmp() {
+  var id=document.getElementById('F_EMP_ID').value;
+  var fn=document.getElementById('F_FNAME').value.trim();
+  var ln=document.getElementById('F_LNAME').value.trim();
+  var em=document.getElementById('F_EMAIL').value.trim();
+  var ph=document.getElementById('F_PHONE').value.trim();
+  var eid=document.getElementById('F_EMPID').value.trim();
+  var dept=document.getElementById('F_DEPT').value;
+  var pos=document.getElementById('F_POS').value.trim();
+  var role=document.getElementById('F_ROLE').value;
+  var sd=document.getElementById('F_START').value;
+  var pw=document.getElementById('F_PASS').value;
+  var pin=document.getElementById('F_PIN').value.trim()||'1234';
+  if(!fn||!ln||!em){toast('Name and email required','error');return;}
+  var btn=document.getElementById('BTN_SAVE_EMP');
   btn.disabled=true; btn.textContent='Saving…';
-  try{
-    if(id){
-      await db.collection('staff').doc(id).update({firstName,lastName,email,phone,employeeID,department,position,role,startDate,pin,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
-      showToast('Employee updated','success');
-    } else {
-      if(!password||password.length<6){showToast('Password must be at least 6 characters','error');btn.disabled=false;btn.textContent='Save Employee';return;}
-      var cred=await auth.createUserWithEmailAndPassword(email,password);
-      var uid=cred.user.uid;
-      await db.collection('staff').doc(uid).set({firstName,lastName,email,phone,employeeID,department,position,role,startDate,uid,pin,authPass:password,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-      await auth.signInWithEmailAndPassword(ADMIN_EMAIL,ADMIN_PASS);
-      showToast('Employee created','success');
-    }
-    closeModal('empModal');
-  }catch(e){showToast('Error: '+e.message,'error');btn.disabled=false;btn.textContent=id?'Save Changes':'Save Employee';}
+  if(id){
+    db.collection('staff').doc(id).update({firstName:fn,lastName:ln,email:em,phone:ph,employeeID:eid,department:dept,position:pos,role:role,startDate:sd,pin:pin,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+      .then(function(){toast('Employee updated','success');closeM('M_EMP');})
+      .catch(function(e){toast('Error: '+e.message,'error');})
+      .finally(function(){btn.disabled=false;btn.textContent='Save Changes';});
+  } else {
+    if(!pw||pw.length<6){toast('Password must be at least 6 characters','error');btn.disabled=false;btn.textContent='Save Employee';return;}
+    auth.createUserWithEmailAndPassword(em,pw)
+      .then(function(cred){
+        return db.collection('staff').doc(cred.user.uid).set({firstName:fn,lastName:ln,email:em,phone:ph,employeeID:eid,department:dept,position:pos,role:role,startDate:sd,pin:pin,authPass:pw,uid:cred.user.uid,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      })
+      .then(function(){ return auth.signInWithEmailAndPassword(ADMIN_EMAIL,ADMIN_PASS); })
+      .then(function(){toast('Employee created','success');closeM('M_EMP');})
+      .catch(function(e){toast('Error: '+e.message,'error');})
+      .finally(function(){btn.disabled=false;btn.textContent='Save Employee';});
+  }
 }
 
-/* ============================================================
+/* ================================================================
    PAGE: ATTENDANCE
-============================================================ */
-async function renderAttendance() {
-  var pc=document.getElementById('pageContent');
-  pc.innerHTML='<div class="page-fade">'
-    +'<div class="section-header"><div class="section-title">Attendance Records</div></div>'
+================================================================ */
+function pgAtt() {
+  var pg=document.getElementById('PAGE');
+  pg.innerHTML='<div class="pf"><div class="sh"><div class="st">Attendance Records</div></div>'
     +'<div class="card" style="margin-bottom:14px;"><div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">'
-    +'<div><label class="filter-label">Date</label><input type="date" id="attDate" value="'+todayStr()+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"/></div>'
-    +'<div style="flex:1;min-width:140px;"><label class="filter-label">Search</label><input type="text" id="attSearch" placeholder="Name or dept…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"/></div>'
+    +'<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Date</div>'
+    +'<input type="date" id="ATT_DATE" value="'+ds()+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    +'<div style="flex:1;min-width:140px;"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Search</div>'
+    +'<input type="text" id="ATT_SRCH" placeholder="Name or dept…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
     +'</div></div>'
-    +'<div class="card"><div class="table-wrap"><table class="dt">'
+    +'<div class="card"><div class="tw"><table class="dt">'
     +'<thead><tr><th>Employee</th><th>Dept</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th></tr></thead>'
-    +'<tbody id="attBody"></tbody></table></div></div></div>';
-  document.getElementById('attDate').addEventListener('change', loadAttTable);
-  document.getElementById('attSearch').addEventListener('input', filterAttTable);
-  loadAttTable();
+    +'<tbody id="ATT_BODY"></tbody></table></div></div></div>';
+  document.getElementById('ATT_DATE').addEventListener('change', loadAttData);
+  document.getElementById('ATT_SRCH').addEventListener('input', filterAtt);
+  loadAttData();
 }
-
-async function loadAttTable(){
-  var date=document.getElementById('attDate')?document.getElementById('attDate').value:todayStr();
-  var tb=document.getElementById('attBody'); if(!tb)return;
-  tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted);">Loading…</td></tr>';
-  var snap=await db.collection('attendance').where('date','==',date).orderBy('clockIn','desc').get();
-  allAttendance=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-  filterAttTable();
+function loadAttData(){
+  var date=(document.getElementById('ATT_DATE')||{value:ds()}).value;
+  var tb=document.getElementById('ATT_BODY'); if(!tb)return;
+  tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted);">Loading…</td></tr>';
+  db.collection('attendance').where('date','==',date).orderBy('clockIn','desc').get().then(function(snap){
+    attList=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    filterAtt();
+  });
 }
-function filterAttTable(){
-  var q=(document.getElementById('attSearch')?document.getElementById('attSearch').value:'').toLowerCase();
-  var tb=document.getElementById('attBody'); if(!tb)return;
-  var list=allAttendance.filter(function(r){return !q||(r.employeeName||'').toLowerCase().includes(q)||(r.department||'').toLowerCase().includes(q);});
-  if(!list.length){tb.innerHTML='<tr><td colspan="6"><div class="no-data"><p>No records for this date.</p></div></td></tr>';return;}
+function filterAtt(){
+  var q=(document.getElementById('ATT_SRCH')||{value:''}).value.toLowerCase();
+  var tb=document.getElementById('ATT_BODY'); if(!tb)return;
+  var list=attList.filter(function(r){return !q||(r.employeeName||'').toLowerCase().includes(q)||(r.department||'').toLowerCase().includes(q);});
+  if(!list.length){tb.innerHTML='<tr><td colspan="6"><div class="nd"><p>No records for this date.</p></div></td></tr>';return;}
   tb.innerHTML=list.map(function(r){return '<tr>'
-    +'<td><b>'+(r.employeeName||'—')+'</b><br><span style="font-size:11px;color:var(--muted);">'+(r.employeeID||'')+'</span></td>'
+    +'<td><b>'+(r.employeeName||'—')+'</b><div style="font-size:11px;color:var(--muted);">'+(r.employeeID||'')+'</div></td>'
     +'<td><span class="dept-tag">'+(r.department||'—')+'</span></td>'
-    +'<td style="font-size:13px;">'+(fmtTime(r.clockIn)||'—')+'</td>'
-    +'<td style="font-size:13px;">'+(r.clockOut?fmtTime(r.clockOut):'<span style="color:var(--muted);">Still In</span>')+'</td>'
-    +'<td style="font-size:13px;color:var(--muted);">'+(r.clockIn&&r.clockOut?duration(r.clockIn,r.clockOut):'—')+'</td>'
-    +'<td>'+(r.late?'<span class="late-tag">LATE</span>':'<span class="badge badge-green">On Time</span>')+'</td>'
+    +'<td style="font-size:13px;">'+(ft(r.clockIn)||'—')+'</td>'
+    +'<td style="font-size:13px;">'+(r.clockOut?ft(r.clockOut):'<span style="color:var(--muted);">Still In</span>')+'</td>'
+    +'<td style="font-size:13px;color:var(--muted);">'+(r.clockIn&&r.clockOut?dur(r.clockIn,r.clockOut):'—')+'</td>'
+    +'<td>'+(r.late?'<span class="late-tag">LATE</span>':'<span class="badge b-green">On Time</span>')+'</td>'
     +'</tr>';}).join('');
 }
 
-/* ============================================================
+/* ================================================================
    PAGE: MY ATTENDANCE
-============================================================ */
-async function renderMyAttendance(){
-  var pc=document.getElementById('pageContent');
-  pc.innerHTML='<div class="page-fade">'
-    +'<div class="clock-hero">'
-    +'<div class="clock-time" id="myTime">00:00:00</div>'
-    +'<div class="clock-date" id="myDate">—</div>'
-    +'<div class="clock-status" id="mySt"><div class="c-dot out"></div>Not clocked in</div>'
-    +'<div class="clock-btns">'
-    +'<button class="btn-ci" id="btnIn">⏱ Clock In</button>'
-    +'<button class="btn-co hidden" id="btnOut">✋ Clock Out</button>'
+================================================================ */
+function pgMyAtt(){
+  var pg=document.getElementById('PAGE');
+  pg.innerHTML='<div class="pf">'
+    +'<div class="ch-hero">'
+    +'<div class="ch-time" id="CT">00:00:00</div>'
+    +'<div class="ch-date" id="CD">—</div>'
+    +'<div class="ch-st" id="CST"><div class="cdot out"></div>Not clocked in</div>'
+    +'<div class="ch-btns">'
+    +'<button class="btn-ci" id="BTN_CI">⏱ Clock In</button>'
+    +'<button class="btn-co hidden" id="BTN_CO">✋ Clock Out</button>'
     +'</div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">'
-    +'<div class="card card-pad" style="text-align:center;"><div class="stat-num green" id="myPresent">—</div><div class="stat-label">Days Present</div></div>'
-    +'<div class="card card-pad" style="text-align:center;"><div class="stat-num amber" id="myLate">—</div><div class="stat-label">Late Arrivals</div></div>'
+    +'<div class="card cp" style="text-align:center;"><div class="sc-n green" id="MY_P">—</div><div class="sc-l">Days Present</div></div>'
+    +'<div class="card cp" style="text-align:center;"><div class="sc-n amber" id="MY_L">—</div><div class="sc-l">Late Arrivals</div></div>'
     +'</div>'
-    +'<div class="card"><div class="card-header"><div class="card-title">Attendance History</div></div>'
-    +'<div class="card-body" id="myHist"><div style="padding:30px;text-align:center;color:var(--muted);">Loading…</div></div></div></div>';
+    +'<div class="card"><div class="ch"><div class="ct">Attendance History</div></div>'
+    +'<div class="cb" id="MY_HIST"><div style="text-align:center;padding:20px;color:var(--muted);">Loading…</div></div></div></div>';
 
-  document.getElementById('btnIn').addEventListener('click',function(){myClock('IN');});
-  document.getElementById('btnOut').addEventListener('click',function(){myClock('OUT');});
-  startClock();
-  await checkMyStatus();
+  document.getElementById('BTN_CI').addEventListener('click',function(){ clockIt('IN'); });
+  document.getElementById('BTN_CO').addEventListener('click',function(){ clockIt('OUT'); });
+  runClock();
+  checkClockStatus();
   loadMyHist();
   loadMyStats();
 }
 
-function startClock(){
-  if(clockTimer)clearInterval(clockTimer);
+function runClock(){
+  if(clockTmr) clearInterval(clockTmr);
   function tick(){
     var now=new Date();
-    var t=document.getElementById('myTime'),d=document.getElementById('myDate');
+    var t=document.getElementById('CT'),d=document.getElementById('CD');
     if(t)t.textContent=now.toLocaleTimeString('en-NG',{hour12:false});
     if(d)d.textContent=now.toLocaleDateString('en-NG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   }
-  tick(); clockTimer=setInterval(tick,1000);
+  tick(); clockTmr=setInterval(tick,1000);
 }
 
-async function checkMyStatus(){
-  var snap=await db.collection('attendance').where('uid','==',currentUser.uid).where('date','==',todayStr()).limit(1).get();
-  var st=document.getElementById('mySt'),bI=document.getElementById('btnIn'),bO=document.getElementById('btnOut');
-  if(!st)return;
-  if(!snap.empty){
-    var d=snap.docs[0].data();
-    if(d.clockIn&&!d.clockOut){
-      st.innerHTML='<div class="c-dot in"></div>Clocked In at '+fmtTime(d.clockIn);
-      if(bI)bI.classList.add('hidden'); if(bO)bO.classList.remove('hidden');
-    } else if(d.clockOut){
-      st.innerHTML='<div class="c-dot out"></div>Clocked Out at '+fmtTime(d.clockOut);
-      if(bI)bI.classList.remove('hidden'); if(bO)bO.classList.add('hidden');
+function checkClockStatus(){
+  db.collection('attendance').where('uid','==',CU.uid).where('date','==',ds()).limit(1).get().then(function(snap){
+    var st=document.getElementById('CST'),bI=document.getElementById('BTN_CI'),bO=document.getElementById('BTN_CO');
+    if(!st)return;
+    if(!snap.empty){
+      var d=snap.docs[0].data();
+      if(d.clockIn&&!d.clockOut){
+        st.innerHTML='<div class="cdot in"></div>Clocked In at '+ft(d.clockIn);
+        if(bI)bI.classList.add('hidden'); if(bO)bO.classList.remove('hidden');
+      } else if(d.clockOut){
+        st.innerHTML='<div class="cdot out"></div>Clocked Out at '+ft(d.clockOut);
+        if(bI)bI.classList.remove('hidden'); if(bO)bO.classList.add('hidden');
+      }
     }
-  }
+  });
 }
 
-async function myClock(type){
-  var btn=type==='IN'?document.getElementById('btnIn'):document.getElementById('btnOut');
+function clockIt(type){
+  var btn=type==='IN'?document.getElementById('BTN_CI'):document.getElementById('BTN_CO');
   if(!btn)return;
   btn.disabled=true; btn.textContent='Recording…';
-  var today=todayStr(), nowStr=new Date().toISOString();
+  var today=ds(), now=new Date().toISOString();
   var isLate=(type==='IN'&&new Date().getHours()>=9);
-  try{
-    var ex=await db.collection('attendance').where('uid','==',currentUser.uid).where('date','==',today).limit(1).get();
-    if(type==='IN'){
-      if(!ex.empty){showToast('Already clocked in today','warn');return;}
-      await db.collection('attendance').add({uid:currentUser.uid,employeeName:fullName(staffProfile),employeeID:staffProfile.employeeID||'',department:staffProfile.department||'',position:staffProfile.position||'',date:today,clockIn:nowStr,clockInTs:firebase.firestore.FieldValue.serverTimestamp(),late:isLate,location:gpsCoords||null});
-      showToast(isLate?'Clocked in (late)':'Clocked in successfully!',isLate?'warn':'success');
-    } else {
-      if(ex.empty){showToast('No clock-in record found','error');return;}
-      await db.collection('attendance').doc(ex.docs[0].id).update({clockOut:nowStr,clockOutTs:firebase.firestore.FieldValue.serverTimestamp()});
-      showToast('Clocked out. Have a great day!','success');
-    }
-    await checkMyStatus(); loadMyHist(); loadMyStats();
-    addNotif({title:fullName(staffProfile)+' '+(type==='IN'?'clocked in':'clocked out'),body:new Date().toLocaleTimeString('en-NG')+' · '+(staffProfile.department||''),icon:type==='IN'?'⏱':'✋'});
-  }catch(e){showToast('Error: '+e.message,'error');}
-  finally{if(btn){btn.disabled=false;btn.textContent=type==='IN'?'⏱ Clock In':'✋ Clock Out';}}
+  db.collection('attendance').where('uid','==',CU.uid).where('date','==',today).limit(1).get()
+    .then(function(ex){
+      if(type==='IN'){
+        if(!ex.empty){toast('Already clocked in today','warn');return null;}
+        return db.collection('attendance').add({uid:CU.uid,employeeName:fname(SP),employeeID:SP.employeeID||'',department:SP.department||'',position:SP.position||'',date:today,clockIn:now,clockInTs:firebase.firestore.FieldValue.serverTimestamp(),late:isLate,location:gps||null});
+      } else {
+        if(ex.empty){toast('No clock-in found for today','error');return null;}
+        return db.collection('attendance').doc(ex.docs[0].id).update({clockOut:now,clockOutTs:firebase.firestore.FieldValue.serverTimestamp()});
+      }
+    })
+    .then(function(res){
+      if(res===null)return;
+      toast(type==='IN'?(isLate?'Clocked in — you\'re a bit late':'Clocked in successfully! ✅'):'Clocked out. Have a great day! 👋','success');
+      checkClockStatus(); loadMyHist(); loadMyStats();
+      pushNotif({title:fname(SP)+' '+(type==='IN'?'clocked in':'clocked out'),body:new Date().toLocaleTimeString('en-NG')+' · '+(SP.department||''),icon:type==='IN'?'⏱':'✋'});
+    })
+    .catch(function(e){toast('Error: '+e.message,'error');})
+    .finally(function(){if(btn){btn.disabled=false;btn.textContent=type==='IN'?'⏱ Clock In':'✋ Clock Out';}});
 }
 
-async function loadMyHist(){
-  var body=document.getElementById('myHist'); if(!body)return;
-  var snap=await db.collection('attendance').where('uid','==',currentUser.uid).orderBy('date','desc').limit(14).get();
-  if(snap.empty){body.innerHTML='<div class="no-data"><div class="no-data-icon">📋</div><p>No records yet.</p></div>';return;}
-  body.innerHTML='<ul class="timeline">'+snap.docs.map(function(doc){
-    var d=doc.data();
-    return '<li class="tl-item"><div class="tl-dot in">✓</div><div class="tl-content">'
-      +'<div class="tl-title">'+fmtDate(d.date)+(d.late?' <span class="late-tag" style="margin-left:6px;">LATE</span>':'')+'</div>'
-      +'<div class="tl-meta">In: '+(fmtTime(d.clockIn)||'—')+' · Out: '+(d.clockOut?fmtTime(d.clockOut):'Still In')+' · '+(d.clockIn&&d.clockOut?duration(d.clockIn,d.clockOut):'—')+'</div>'
-      +'</div></li>';
-  }).join('')+'</ul>';
+function loadMyHist(){
+  var body=document.getElementById('MY_HIST'); if(!body)return;
+  db.collection('attendance').where('uid','==',CU.uid).orderBy('date','desc').limit(14).get().then(function(snap){
+    if(!body)return;
+    if(snap.empty){body.innerHTML='<div class="nd"><div class="nd-i">📋</div><p>No records yet.</p></div>';return;}
+    body.innerHTML='<ul class="tl">'+snap.docs.map(function(doc){
+      var d=doc.data();
+      return '<li class="tli"><div class="tld in">✓</div>'
+        +'<div><div style="font-weight:600;font-size:14px;">'+fd(d.date)+(d.late?' <span class="late-tag" style="margin-left:6px;">LATE</span>':'')+'</div>'
+        +'<div style="font-size:12px;color:var(--muted);margin-top:2px;">In: '+(ft(d.clockIn)||'—')+' · Out: '+(d.clockOut?ft(d.clockOut):'Still In')+' · '+(d.clockIn&&d.clockOut?dur(d.clockIn,d.clockOut):'—')+'</div></div></li>';
+    }).join('')+'</ul>';
+  });
 }
-
-async function loadMyStats(){
+function loadMyStats(){
   var month=new Date().toISOString().slice(0,7);
-  var snap=await db.collection('attendance').where('uid','==',currentUser.uid).get();
-  var mth=snap.docs.map(function(d){return d.data();}).filter(function(d){return d.date&&d.date.startsWith(month);});
-  var p=document.getElementById('myPresent'),l=document.getElementById('myLate');
-  if(p)p.textContent=mth.filter(function(d){return d.clockIn;}).length;
-  if(l)l.textContent=mth.filter(function(d){return d.late;}).length;
+  db.collection('attendance').where('uid','==',CU.uid).get().then(function(snap){
+    var mth=snap.docs.map(function(d){return d.data();}).filter(function(d){return d.date&&d.date.startsWith(month);});
+    var p=document.getElementById('MY_P'),l=document.getElementById('MY_L');
+    if(p)p.textContent=mth.filter(function(d){return d.clockIn;}).length;
+    if(l)l.textContent=mth.filter(function(d){return d.late;}).length;
+  });
 }
 
-/* ============================================================
-   PAGE: LEAVE REQUESTS (Admin)
-============================================================ */
-async function renderLeavesAdmin(){
-  var pc=document.getElementById('pageContent');
-  pc.innerHTML='<div class="page-fade"><div class="section-header"><div class="section-title">Leave Requests</div>'
-    +'<select id="lvFilter" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;">'
+/* ================================================================
+   PAGE: LEAVE REQUESTS (admin/manager)
+================================================================ */
+function pgLeavesAdmin(){
+  var pg=document.getElementById('PAGE');
+  pg.innerHTML='<div class="pf"><div class="sh"><div class="st">Leave Requests</div>'
+    +'<select id="LV_FILTER" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;">'
     +'<option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All</option>'
-    +'</select></div><div id="lvList"><div style="padding:30px;text-align:center;color:var(--muted);">Loading…</div></div></div>';
-  document.getElementById('lvFilter').addEventListener('change', renderLeaveList);
-  var unsub=db.collection('leaves').orderBy('createdAt','desc').onSnapshot(function(snap){
-    allLeaves=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    updateBadge('leavePending',allLeaves.filter(function(l){return l.status==='pending';}).length);
+    +'</select></div>'
+    +'<div id="LV_LIST"></div></div>';
+  document.getElementById('LV_FILTER').addEventListener('change', renderLeaveList);
+  var u=db.collection('leaves').orderBy('createdAt','desc').onSnapshot(function(snap){
+    leaveList=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    setbadge('lp',leaveList.filter(function(l){return l.status==='pending';}).length);
     renderLeaveList();
   });
-  unsubArr.push(unsub);
+  unsubs.push(u);
 }
-
 function renderLeaveList(){
-  var status=document.getElementById('lvFilter')?document.getElementById('lvFilter').value:'pending';
-  var list=document.getElementById('lvList'); if(!list)return;
-  var filtered=status?allLeaves.filter(function(l){return l.status===status;}):allLeaves;
-  if(!filtered.length){list.innerHTML='<div class="no-data"><div class="no-data-icon">📋</div><p>No requests found.</p></div>';return;}
-  list.innerHTML=filtered.map(function(l){return '<div class="leave-card">'
-    +'<div class="l-type-icon lt-'+l.leaveType+'">'+leaveEmoji(l.leaveType)+'</div>'
-    +'<div class="leave-info" style="flex:1;">'
-    +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-    +'<div class="leave-name">'+l.employeeName+'</div>'
-    +'<span class="badge badge-'+lvBadge(l.status)+'">'+l.status+'</span></div>'
-    +'<div class="leave-meta">'+cap(l.leaveType)+' · '+fmtDate(l.startDate)+' – '+fmtDate(l.endDate)+'</div>'
+  var status=(document.getElementById('LV_FILTER')||{value:'pending'}).value;
+  var list=document.getElementById('LV_LIST'); if(!list)return;
+  var filtered=status?leaveList.filter(function(l){return l.status===status;}):leaveList;
+  if(!filtered.length){list.innerHTML='<div class="nd"><div class="nd-i">📋</div><p>No requests found.</p></div>';return;}
+  list.innerHTML=filtered.map(function(l){return '<div class="lc">'
+    +'<div class="lci lt-'+l.leaveType+'">'+lei(l.leaveType)+'</div>'
+    +'<div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+    +'<div class="ln">'+l.employeeName+'</div>'
+    +'<span class="badge '+(l.status==='pending'?'b-amber':l.status==='approved'?'b-green':'b-red')+'">'+l.status+'</span></div>'
+    +'<div class="lm">'+cap(l.leaveType)+' · '+fd(l.startDate)+' – '+fd(l.endDate)+'</div>'
     +(l.reason?'<div style="font-size:12px;color:var(--muted);margin-top:3px;">'+l.reason+'</div>':'')
-    +(l.status==='pending'
-      ?'<div style="display:flex;gap:6px;margin-top:8px;">'
-       +'<button class="btn btn-green btn-xs" onclick="handleLeave(\''+l.id+'\',\'approved\')">✓ Approve</button>'
-       +'<button class="btn btn-red btn-xs" onclick="handleLeave(\''+l.id+'\',\'rejected\')">✕ Reject</button>'
-       +'</div>':'')
-    +'</div>'
-    +'<div style="font-size:11px;color:var(--muted);">'+fmtDate(l.createdAt&&l.createdAt.toDate?l.createdAt.toDate().toISOString().split('T')[0]:null)+'</div>'
-    +'</div>';}).join('');
-}
-
-async function handleLeave(id,status){
-  try{
-    var doc=await db.collection('leaves').doc(id).get(); var data=doc.data();
-    await db.collection('leaves').doc(id).update({status,reviewedBy:currentUser.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp()});
-    showToast('Leave '+status,status==='approved'?'success':'error');
-    addNotif({title:'Your leave was '+status,body:cap(data.leaveType)+' · '+fmtDate(data.startDate)+' – '+fmtDate(data.endDate),icon:status==='approved'?'✅':'❌',forUid:data.uid});
-  }catch(e){showToast('Error: '+e.message,'error');}
-}
-function lvBadge(s){return{pending:'amber',approved:'green',rejected:'red'}[s]||'gray';}
-
-/* ============================================================
-   PAGE: MY LEAVES
-============================================================ */
-async function renderMyLeaves(){
-  var pc=document.getElementById('pageContent');
-  pc.innerHTML='<div class="page-fade"><div class="section-header"><div class="section-title">My Leave Requests</div>'
-    +'<button class="btn btn-primary" id="reqLeaveBtn">+ Request Leave</button></div>'
-    +'<div id="myLvList"><div style="padding:30px;text-align:center;color:var(--muted);">Loading…</div></div></div>';
-  document.getElementById('reqLeaveBtn').addEventListener('click',function(){openModal('leaveModal');});
-  var unsub=db.collection('leaves').where('uid','==',currentUser.uid).orderBy('createdAt','desc').onSnapshot(function(snap){
-    var leaves=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    var list=document.getElementById('myLvList'); if(!list)return;
-    if(!leaves.length){list.innerHTML='<div class="no-data"><div class="no-data-icon">🌴</div><p>No requests yet.</p></div>';return;}
-    list.innerHTML=leaves.map(function(l){return '<div class="leave-card">'
-      +'<div class="l-type-icon lt-'+l.leaveType+'">'+leaveEmoji(l.leaveType)+'</div>'
-      +'<div class="leave-info" style="flex:1;">'
-      +'<div class="leave-name">'+cap(l.leaveType)+' Leave</div>'
-      +'<div class="leave-meta">'+fmtDate(l.startDate)+' – '+fmtDate(l.endDate)+'</div>'
-      +(l.reason?'<div style="font-size:12px;color:var(--muted);margin-top:3px;">'+l.reason+'</div>':'')
-      +'</div><span class="badge badge-'+lvBadge(l.status)+'">'+l.status+'</span></div>';}).join('');
-  });
-  unsubArr.push(unsub);
-}
-
-async function submitLeave(){
-  var lt=document.getElementById('leaveType').value;
-  var s=document.getElementById('leaveStart').value;
-  var e=document.getElementById('leaveEnd').value;
-  var r=document.getElementById('leaveReason').value.trim();
-  if(!s||!e){showToast('Select start and end dates','error');return;}
-  if(new Date(e)<new Date(s)){showToast('End date before start date','error');return;}
-  try{
-    await db.collection('leaves').add({uid:currentUser.uid,employeeName:fullName(staffProfile),employeeID:staffProfile.employeeID||'',department:staffProfile.department||'',leaveType:lt,startDate:s,endDate:e,reason:r,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-    showToast('Leave request submitted','success');
-    closeModal('leaveModal');
-    document.getElementById('leaveReason').value='';
-  }catch(err){showToast('Error: '+err.message,'error');}
-}
-
-/* ============================================================
-   PAGE: REPORTS
-============================================================ */
-async function renderReports(){
-  var pc=document.getElementById('pageContent');
-  var today=todayStr(),thisMonth=today.slice(0,7);
-  window._rptMode='monthly';
-  pc.innerHTML='<div class="page-fade"><div class="section-header"><div class="section-title">Reports</div>'
-    +'<div style="display:flex;gap:8px;">'
-    +'<button class="btn btn-ghost btn-sm" id="btnRptD">Daily</button>'
-    +'<button class="btn btn-primary btn-sm" id="btnRptM">Monthly</button>'
-    +'</div></div>'
-    +'<div class="card" style="margin-bottom:14px;"><div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">'
-    +'<div id="rptDCtrl" style="display:none;"><label class="filter-label">Date</label><input type="date" id="rptDate" value="'+today+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"/></div>'
-    +'<div id="rptMCtrl"><label class="filter-label">Month</label><input type="month" id="rptMonth" value="'+thisMonth+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;"/></div>'
-    +'<button class="btn btn-primary" id="genRptBtn" style="align-self:flex-end;">Generate</button>'
-    +'</div></div>'
-    +'<div id="rptOut"><div class="no-data"><div class="no-data-icon">📈</div><p>Click Generate to build a report.</p></div></div></div>';
-
-  document.getElementById('btnRptD').addEventListener('click',function(){window._rptMode='daily';document.getElementById('rptDCtrl').style.display='block';document.getElementById('rptMCtrl').style.display='none';this.className='btn btn-primary btn-sm';document.getElementById('btnRptM').className='btn btn-ghost btn-sm';});
-  document.getElementById('btnRptM').addEventListener('click',function(){window._rptMode='monthly';document.getElementById('rptDCtrl').style.display='none';document.getElementById('rptMCtrl').style.display='block';this.className='btn btn-primary btn-sm';document.getElementById('btnRptD').className='btn btn-ghost btn-sm';});
-  document.getElementById('genRptBtn').addEventListener('click',genReport);
-  genReport();
-}
-
-async function genReport(){
-  var out=document.getElementById('rptOut'); if(!out)return;
-  out.innerHTML='<div style="padding:30px;text-align:center;color:var(--muted);">Generating…</div>';
-  var records=[],title='';
-  if(window._rptMode==='daily'){
-    var date=document.getElementById('rptDate')?document.getElementById('rptDate').value:todayStr();
-    var snap=await db.collection('attendance').where('date','==',date).get();
-    records=snap.docs.map(function(d){return d.data();}); title='Daily Report — '+fmtDate(date);
-  } else {
-    var month=document.getElementById('rptMonth')?document.getElementById('rptMonth').value:new Date().toISOString().slice(0,7);
-    var snap=await db.collection('attendance').get();
-    records=snap.docs.map(function(d){return d.data();}).filter(function(d){return d.date&&d.date.startsWith(month);}); title='Monthly Report — '+month;
-  }
-  var total=records.length,withOut=records.filter(function(r){return r.clockOut;}).length;
-  var late=records.filter(function(r){return r.late;}).length,onTime=total-late;
-  var byEmp={};
-  records.forEach(function(r){if(!r.uid)return;if(!byEmp[r.uid])byEmp[r.uid]={name:r.employeeName||'—',dept:r.department||'—',count:0,late:0};byEmp[r.uid].count++;if(r.late)byEmp[r.uid].late++;});
-  out.innerHTML='<div class="card card-pad" style="margin-bottom:14px;">'
-    +'<div style="font-size:15px;font-weight:700;margin-bottom:14px;">'+title+'</div>'
-    +'<div class="report-summary">'
-    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--accent);">'+total+'</div><div class="r-cell-label">Records</div></div>'
-    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--green);">'+onTime+'</div><div class="r-cell-label">On Time</div></div>'
-    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--amber);">'+late+'</div><div class="r-cell-label">Late</div></div>'
-    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--accent2);">'+withOut+'</div><div class="r-cell-label">Complete</div></div>'
-    +'<div class="r-cell"><div class="r-cell-num" style="color:var(--muted);">'+Object.keys(byEmp).length+'</div><div class="r-cell-label">Staff</div></div>'
-    +'</div></div>'
-    +'<div class="card"><div class="card-header"><div class="card-title">Staff Summary</div></div><div class="table-wrap"><table class="dt">'
-    +'<thead><tr><th>Employee</th><th>Department</th><th>Present</th><th>Late</th><th>Punctuality</th></tr></thead><tbody>'
-    +(Object.values(byEmp).length===0?'<tr><td colspan="5"><div class="no-data"><p>No data.</p></div></td></tr>'
-      :Object.values(byEmp).sort(function(a,b){return b.count-a.count;}).map(function(e){
-        var pct=Math.round(((e.count-e.late)/e.count)*100);
-        return '<tr><td style="font-weight:600;">'+e.name+'</td><td><span class="dept-tag">'+e.dept+'</span></td><td>'+e.count+'</td>'
-          +'<td>'+(e.late>0?'<span class="late-tag">'+e.late+'</span>':'<span style="color:var(--green);font-weight:600;">0</span>')+'</td>'
-          +'<td><div style="display:flex;align-items:center;gap:8px;">'
-          +'<div style="flex:1;height:6px;background:var(--border);border-radius:3px;min-width:60px;">'
-          +'<div style="height:100%;width:'+pct+'%;background:'+(pct>=90?'var(--green)':pct>=70?'var(--amber)':'var(--red)')+';border-radius:3px;"></div>'
-          +'</div><span style="font-size:12px;font-weight:600;">'+pct+'%</span></div></td></tr>';
-      }).join(''))
-    +'</tbody></table></div></div>';
-}
-
-/* ============================================================
-   PAGE: SETTINGS & PIN CHANGE
-============================================================ */
-function renderSettings(){
-  var pc=document.getElementById('pageContent');
-  pc.innerHTML='<div class="page-fade">'
-    +'<div class="section-title" style="margin-bottom:20px;">Settings & Security</div>'
-
-    /* Change Admin PIN */
-    +'<div class="card card-pad" style="margin-bottom:16px;">'
-    +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">🔐 Change Admin PIN</div>'
-    +'<div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Update the 4-digit PIN used to sign in as Admin.</div>'
-    +'<div class="form-grid">'
-    +'<div class="field"><label>Current PIN</label><input type="password" id="curPin" placeholder="Current 4-digit PIN" maxlength="4" style="letter-spacing:8px;font-size:20px;"/></div>'
-    +'<div class="field"><label>New PIN</label><input type="password" id="newPin" placeholder="New 4-digit PIN" maxlength="4" style="letter-spacing:8px;font-size:20px;"/></div>'
-    +'<div class="field"><label>Confirm PIN</label><input type="password" id="confPin" placeholder="Confirm new PIN" maxlength="4" style="letter-spacing:8px;font-size:20px;"/></div>'
-    +'</div>'
-    +'<button class="btn btn-primary" id="savePinBtn">Update PIN</button>'
-    +'</div>'
-
-    /* Company Info */
-    +'<div class="card card-pad" style="margin-bottom:16px;">'
-    +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">🏢 System Info</div>'
-    +'<div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Current system configuration.</div>'
-    +'<div style="display:grid;gap:10px;">'
-    +'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">'
-    +'<span style="color:var(--muted);font-size:13px;">Admin Email</span><span style="font-size:13px;font-weight:600;">'+ADMIN_EMAIL+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">'
-    +'<span style="color:var(--muted);font-size:13px;">Current Role</span><span class="badge badge-purple">'+roleLbl(currentRole)+'</span></div>'
-    +'<div style="display:flex;justify-content:space-between;padding:10px 0;">'
-    +'<span style="color:var(--muted);font-size:13px;">Late Threshold</span><span style="font-size:13px;font-weight:600;">9:00 AM</span></div>'
-    +'</div></div>'
-
-    +'</div>';
-
-  document.getElementById('savePinBtn').addEventListener('click', function(){
-    var cur=document.getElementById('curPin').value;
-    var nw=document.getElementById('newPin').value;
-    var cf=document.getElementById('confPin').value;
-    if(cur!==ADMIN_PIN){showToast('Current PIN is incorrect','error');return;}
-    if(nw.length!==4||!/^\d{4}$/.test(nw)){showToast('New PIN must be exactly 4 digits','error');return;}
-    if(nw!==cf){showToast('PINs do not match','error');return;}
-    ADMIN_PIN=nw;
-    showToast('PIN updated successfully! Remember your new PIN: '+nw,'success');
-    document.getElementById('curPin').value='';
-    document.getElementById('newPin').value='';
-    document.getElementById('confPin').value='';
-  });
-}
-
-/* ============================================================
-   NOTIFICATIONS
-============================================================ */
-async function loadNotifications(){
-  try{
-    var snap=await db.collection('notifications').orderBy('createdAt','desc').limit(20).get();
-    notifications=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
-    renderNotifs();
-    var unread=notifications.filter(function(n){return !n.read;}).length;
-    var dot=document.getElementById('notifDot'); if(dot)dot.classList.toggle('hidden',unread===0);
-  }catch(_){}
-}
-function renderNotifs(){
-  var list=document.getElementById('notifList'); if(!list)return;
-  if(!notifications.length){list.innerHTML='<div class="no-data"><div class="no-data-icon">🔔</div><p>No notifications yet.</p></div>';return;}
-  list.innerHTML=notifications.map(function(n){return '<div class="notif-item '+(n.read?'':'unread')+'">'
-    +'<div class="notif-item-icon">'+(n.icon||'🔔')+'</div>'
-    +'<div><div style="font-size:13px;font-weight:600;margin-bottom:2px;">'+(n.title||'Notification')+'</div>'
-    +'<div style="font-size:12px;color:var(--muted);">'+(n.body||'')+'</div>'
-    +'<div style="font-size:11px;color:var(--muted);margin-top:3px;">'+(n.createdAt&&n.createdAt.toDate?timeAgo(n.createdAt.toDate()):'—')+'</div>'
+    +(l.status==='pending'?'<div style="display:flex;gap:6px;margin-top:8px;">'
+      +'<button class="btn btn-green btn-xs" onclick="apvLeave(\''+l.id+'\',\'approved\')">✓ Approve</button>'
+      +'<button class="btn btn-red btn-xs" onclick="apvLeave(\''+l.id+'\',\'rejected\')">✕ Reject</button>'
+      +'</div>':'')
     +'</div></div>';}).join('');
 }
-async function addNotif(data){
-  try{await db.collection('notifications').add(Object.assign({},data,{read:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()}));setTimeout(loadNotifications,1500);}catch(_){}
+function apvLeave(id,status){
+  db.collection('leaves').doc(id).get().then(function(doc){
+    var data=doc.data();
+    return db.collection('leaves').doc(id).update({status:status,reviewedBy:CU.uid,reviewedAt:firebase.firestore.FieldValue.serverTimestamp()})
+      .then(function(){
+        toast('Leave '+status,status==='approved'?'success':'error');
+        pushNotif({title:'Your leave was '+status,body:cap(data.leaveType)+' · '+fd(data.startDate)+' – '+fd(data.endDate),icon:status==='approved'?'✅':'❌'});
+      });
+  }).catch(function(e){toast('Error: '+e.message,'error');});
+}
+
+/* ================================================================
+   PAGE: MY LEAVES
+================================================================ */
+function pgMyLeaves(){
+  var pg=document.getElementById('PAGE');
+  pg.innerHTML='<div class="pf"><div class="sh"><div class="st">My Leave Requests</div>'
+    +'<button class="btn btn-primary" id="BTN_REQ_LEAVE">+ Request Leave</button></div>'
+    +'<div id="MY_LV_LIST"></div></div>';
+  document.getElementById('BTN_REQ_LEAVE').addEventListener('click',function(){ openM('M_LEAVE'); });
+  var u=db.collection('leaves').where('uid','==',CU.uid).orderBy('createdAt','desc').onSnapshot(function(snap){
+    var leaves=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    var list=document.getElementById('MY_LV_LIST'); if(!list)return;
+    if(!leaves.length){list.innerHTML='<div class="nd"><div class="nd-i">🌴</div><p>No leave requests yet.</p></div>';return;}
+    list.innerHTML=leaves.map(function(l){return '<div class="lc">'
+      +'<div class="lci lt-'+l.leaveType+'">'+lei(l.leaveType)+'</div>'
+      +'<div style="flex:1;"><div class="ln">'+cap(l.leaveType)+' Leave</div>'
+      +'<div class="lm">'+fd(l.startDate)+' – '+fd(l.endDate)+'</div>'
+      +(l.reason?'<div style="font-size:12px;color:var(--muted);margin-top:3px;">'+l.reason+'</div>':'')
+      +'</div><span class="badge '+(l.status==='pending'?'b-amber':l.status==='approved'?'b-green':'b-red')+'">'+l.status+'</span></div>';}).join('');
+  });
+  unsubs.push(u);
+}
+function subLeave(){
+  var lt=document.getElementById('F_LTYPE').value;
+  var s=document.getElementById('F_LSTART').value;
+  var e=document.getElementById('F_LEND').value;
+  var r=document.getElementById('F_LREASON').value.trim();
+  if(!s||!e){toast('Select start and end dates','error');return;}
+  if(new Date(e)<new Date(s)){toast('End date is before start date','error');return;}
+  db.collection('leaves').add({uid:CU.uid,employeeName:fname(SP),employeeID:SP.employeeID||'',department:SP.department||'',leaveType:lt,startDate:s,endDate:e,reason:r,status:'pending',createdAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){toast('Leave request submitted','success');closeM('M_LEAVE');document.getElementById('F_LREASON').value='';})
+    .catch(function(e){toast('Error: '+e.message,'error');});
+}
+
+/* ================================================================
+   PAGE: REPORTS
+================================================================ */
+function pgReports(){
+  var pg=document.getElementById('PAGE');
+  var today=ds(),mon=today.slice(0,7);
+  pg.innerHTML='<div class="pf"><div class="sh"><div class="st">Reports</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="btn btn-ghost btn-sm" id="BTN_RPT_D">Daily</button>'
+    +'<button class="btn btn-primary btn-sm" id="BTN_RPT_M">Monthly</button>'
+    +'</div></div>'
+    +'<div class="card" style="margin-bottom:14px;"><div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">'
+    +'<div id="RPT_D_WRAP" style="display:none;"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Date</div>'
+    +'<input type="date" id="RPT_DATE" value="'+today+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    +'<div id="RPT_M_WRAP"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Month</div>'
+    +'<input type="month" id="RPT_MONTH" value="'+mon+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    +'<button class="btn btn-primary" style="align-self:flex-end;" id="BTN_GEN">Generate</button>'
+    +'</div></div>'
+    +'<div id="RPT_OUT"><div class="nd"><div class="nd-i">📈</div><p>Click Generate.</p></div></div></div>';
+
+  var mode='monthly';
+  document.getElementById('BTN_RPT_D').addEventListener('click',function(){mode='daily';document.getElementById('RPT_D_WRAP').style.display='block';document.getElementById('RPT_M_WRAP').style.display='none';this.className='btn btn-primary btn-sm';document.getElementById('BTN_RPT_M').className='btn btn-ghost btn-sm';});
+  document.getElementById('BTN_RPT_M').addEventListener('click',function(){mode='monthly';document.getElementById('RPT_D_WRAP').style.display='none';document.getElementById('RPT_M_WRAP').style.display='block';this.className='btn btn-primary btn-sm';document.getElementById('BTN_RPT_D').className='btn btn-ghost btn-sm';});
+  document.getElementById('BTN_GEN').addEventListener('click',function(){genReport(mode);});
+  genReport(mode);
+}
+function genReport(mode){
+  var out=document.getElementById('RPT_OUT'); if(!out)return;
+  out.innerHTML='<div style="padding:30px;text-align:center;color:var(--muted);">Generating…</div>';
+  var p;
+  if(mode==='daily'){
+    var date=(document.getElementById('RPT_DATE')||{value:ds()}).value;
+    p=db.collection('attendance').where('date','==',date).get().then(function(snap){return{records:snap.docs.map(function(d){return d.data();}),title:'Daily Report — '+fd(date)};});
+  } else {
+    var month=(document.getElementById('RPT_MONTH')||{value:new Date().toISOString().slice(0,7)}).value;
+    p=db.collection('attendance').get().then(function(snap){return{records:snap.docs.map(function(d){return d.data();}).filter(function(d){return d.date&&d.date.startsWith(month);}),title:'Monthly Report — '+month};});
+  }
+  p.then(function(res){
+    var records=res.records,title=res.title;
+    var total=records.length,withOut=records.filter(function(r){return r.clockOut;}).length;
+    var late=records.filter(function(r){return r.late;}).length;
+    var byEmp={};
+    records.forEach(function(r){if(!r.uid)return;if(!byEmp[r.uid])byEmp[r.uid]={n:r.employeeName||'—',d:r.department||'—',c:0,l:0};byEmp[r.uid].c++;if(r.late)byEmp[r.uid].l++;});
+    out=document.getElementById('RPT_OUT'); if(!out)return;
+    out.innerHTML='<div class="card cp" style="margin-bottom:14px;">'
+      +'<div style="font-size:15px;font-weight:700;margin-bottom:14px;">'+title+'</div>'
+      +'<div class="rs">'
+      +'<div class="rc"><div class="rcn" style="color:var(--accent);">'+total+'</div><div class="rcl">Records</div></div>'
+      +'<div class="rc"><div class="rcn" style="color:var(--green);">'+(total-late)+'</div><div class="rcl">On Time</div></div>'
+      +'<div class="rc"><div class="rcn" style="color:var(--amber);">'+late+'</div><div class="rcl">Late</div></div>'
+      +'<div class="rc"><div class="rcn" style="color:var(--sky);">'+withOut+'</div><div class="rcl">Completed</div></div>'
+      +'<div class="rc"><div class="rcn" style="color:var(--muted);">'+Object.keys(byEmp).length+'</div><div class="rcl">Staff</div></div>'
+      +'</div></div>'
+      +'<div class="card"><div class="ch"><div class="ct">Staff Summary</div></div><div class="tw"><table class="dt">'
+      +'<thead><tr><th>Employee</th><th>Department</th><th>Present</th><th>Late</th><th>Punctuality</th></tr></thead><tbody>'
+      +(Object.values(byEmp).length?Object.values(byEmp).sort(function(a,b){return b.c-a.c;}).map(function(e){
+        var pct=Math.round(((e.c-e.l)/e.c)*100);
+        return '<tr><td><b>'+e.n+'</b></td><td><span class="dept-tag">'+e.d+'</span></td><td>'+e.c+'</td>'
+          +'<td>'+(e.l?'<span class="late-tag">'+e.l+'</span>':'<b style="color:var(--green);">0</b>')+'</td>'
+          +'<td><div style="display:flex;align-items:center;gap:8px;">'
+          +'<div style="flex:1;height:6px;background:var(--border);border-radius:3px;min-width:50px;">'
+          +'<div style="height:100%;width:'+pct+'%;background:'+(pct>=90?'var(--green)':pct>=70?'var(--amber)':'var(--red)')+';border-radius:3px;"></div>'
+          +'</div><b style="font-size:12px;">'+pct+'%</b></div></td></tr>';}).join('')
+        :'<tr><td colspan="5"><div class="nd"><p>No data.</p></div></td></tr>')
+      +'</tbody></table></div></div>';
+  }).catch(function(e){toast('Report error: '+e.message,'error');});
+}
+
+/* ================================================================
+   PAGE: SETTINGS & PIN CHANGE
+================================================================ */
+function pgSettings(){
+  var pg=document.getElementById('PAGE');
+  pg.innerHTML='<div class="pf">'
+    +'<div class="st" style="margin-bottom:20px;">Settings &amp; Security</div>'
+
+    +'<div class="card cp" style="margin-bottom:16px;">'
+    +'<div style="font-size:15px;font-weight:700;margin-bottom:4px;">🔐 Change Admin PIN</div>'
+    +'<div style="font-size:13px;color:var(--muted);margin-bottom:18px;">Update the 4-digit PIN used to sign in as Admin.</div>'
+    +'<div class="fg2">'
+    +'<div class="field"><label>Current PIN</label><input type="password" id="CUR_PIN" maxlength="4" class="pin-input" placeholder="• • • •"/></div>'
+    +'<div class="field"><label>New PIN</label><input type="password" id="NEW_PIN" maxlength="4" class="pin-input" placeholder="• • • •"/></div>'
+    +'<div class="field"><label>Confirm New PIN</label><input type="password" id="CONF_PIN" maxlength="4" class="pin-input" placeholder="• • • •"/></div>'
+    +'</div>'
+    +'<button class="btn btn-primary" id="BTN_CHG_PIN">Update PIN</button>'
+    +'<div id="PIN_MSG" style="margin-top:12px;font-size:13px;"></div>'
+    +'</div>'
+
+    +'<div class="card cp">'
+    +'<div style="font-size:15px;font-weight:700;margin-bottom:14px;">ℹ️ System Info</div>'
+    +'<div style="display:flex;flex-direction:column;gap:0;">'
+    +'<div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+    +'<span style="color:var(--muted);">Admin Email</span><b>'+ADMIN_EMAIL+'</b></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);font-size:13px;">'
+    +'<span style="color:var(--muted);">Your Role</span><span class="badge b-purple">'+rlbl(CR)+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between;padding:11px 0;font-size:13px;">'
+    +'<span style="color:var(--muted);">Late Arrival Threshold</span><b>After 9:00 AM</b></div>'
+    +'</div></div>'
+    +'</div>';
+
+  document.getElementById('BTN_CHG_PIN').addEventListener('click', function(){
+    var cur=document.getElementById('CUR_PIN').value;
+    var nw=document.getElementById('NEW_PIN').value;
+    var cf=document.getElementById('CONF_PIN').value;
+    var msg=document.getElementById('PIN_MSG');
+    if(cur!==ADMIN_PIN){msg.innerHTML='<span style="color:var(--red);">❌ Current PIN is incorrect.</span>';return;}
+    if(!/^\d{4}$/.test(nw)){msg.innerHTML='<span style="color:var(--red);">❌ PIN must be exactly 4 digits.</span>';return;}
+    if(nw!==cf){msg.innerHTML='<span style="color:var(--red);">❌ New PINs do not match.</span>';return;}
+    ADMIN_PIN=nw;
+    document.getElementById('CUR_PIN').value='';
+    document.getElementById('NEW_PIN').value='';
+    document.getElementById('CONF_PIN').value='';
+    msg.innerHTML='<span style="color:var(--green);">✅ PIN updated to <b>'+nw+'</b>. Remember it!</span>';
+    toast('Admin PIN updated successfully','success');
+  });
+}
+
+/* ================================================================
+   NOTIFICATIONS
+================================================================ */
+function loadNotifs(){
+  db.collection('notifications').orderBy('createdAt','desc').limit(20).get()
+    .then(function(snap){
+      notifList=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+      renderNotifs();
+      var unread=notifList.filter(function(n){return !n.read;}).length;
+      var dot=document.getElementById('NOTIF_DOT'); if(dot)dot.classList.toggle('hidden',unread===0);
+    }).catch(function(){});
+}
+function renderNotifs(){
+  var list=document.getElementById('NOTIF_LIST'); if(!list)return;
+  if(!notifList.length){list.innerHTML='<div class="nd"><div class="nd-i">🔔</div><p>No notifications yet.</p></div>';return;}
+  list.innerHTML=notifList.map(function(n){return '<div class="npi '+(n.read?'':'unread')+'">'
+    +'<div class="npi-ic">'+(n.icon||'🔔')+'</div>'
+    +'<div><div style="font-size:13px;font-weight:600;margin-bottom:2px;">'+(n.title||'Notification')+'</div>'
+    +'<div style="font-size:12px;color:var(--muted);">'+(n.body||'')+'</div>'
+    +'<div style="font-size:11px;color:var(--muted);margin-top:3px;">'+(n.createdAt&&n.createdAt.toDate?ago(n.createdAt.toDate()):'—')+'</div>'
+    +'</div></div>';}).join('');
+}
+function pushNotif(data){
+  db.collection('notifications').add(Object.assign({},data,{read:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()}))
+    .then(function(){setTimeout(loadNotifs,1200);}).catch(function(){});
 }
 function toggleNotif(){
-  var p=document.getElementById('notifPanel'); p.classList.toggle('open');
-  notifications.filter(function(n){return !n.read;}).forEach(function(n){db.collection('notifications').doc(n.id).update({read:true}).catch(function(){});});
-  var dot=document.getElementById('notifDot'); if(dot)dot.classList.add('hidden');
+  var p=document.getElementById('NOTIF_PANEL'); p.classList.toggle('open');
+  notifList.filter(function(n){return !n.read;}).forEach(function(n){db.collection('notifications').doc(n.id).update({read:true}).catch(function(){});});
+  var dot=document.getElementById('NOTIF_DOT'); if(dot)dot.classList.add('hidden');
 }
 
-/* ============================================================
+/* ================================================================
    MODALS
-============================================================ */
-function openModal(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
-function closeModal(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
+================================================================ */
+function openM(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
+function closeM(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
 function confirmDel(id,col,msg){
-  document.getElementById('confirmMsg').textContent=msg||'Are you sure?';
-  document.getElementById('confirmOkBtn').onclick=async function(){await db.collection(col).doc(id).delete();showToast('Deleted','success');closeModal('confirmModal');};
-  openModal('confirmModal');
+  document.getElementById('M_CONFIRM_MSG').textContent=msg;
+  document.getElementById('BTN_CONFIRM_OK').onclick=function(){
+    db.collection(col).doc(id).delete().then(function(){toast('Deleted','success');closeM('M_CONFIRM');}).catch(function(e){toast('Error: '+e.message,'error');});
+  };
+  openM('M_CONFIRM');
 }
-function updateBadge(id,count){var el=document.getElementById('badge-'+id);if(!el)return;el.textContent=count;el.classList.toggle('hidden',count===0);}
 
-/* ============================================================
+/* ================================================================
+   BADGE
+================================================================ */
+function setbadge(id,n){var el=document.getElementById('nb_'+id);if(!el)return;el.textContent=n;el.classList.toggle('hidden',n===0);}
+
+/* ================================================================
    TOAST
-============================================================ */
-function showToast(msg,type){
+================================================================ */
+function toast(msg,type){
   type=type||'info';
-  var icons={success:'✅',error:'❌',info:'ℹ️',warn:'⚠️'};
-  var t=document.createElement('div'); t.className='toast '+type;
+  var icons={success:'✅',error:'❌',warn:'⚠️',info:'ℹ️'};
+  var t=document.createElement('div');
+  t.className='tst '+type;
   t.innerHTML='<span style="font-size:16px;">'+(icons[type]||'🔔')+'</span><span>'+msg+'</span>';
-  document.getElementById('toastContainer').appendChild(t);
-  setTimeout(function(){t.classList.add('show');},10);
-  setTimeout(function(){t.classList.remove('show');setTimeout(function(){t.remove();},400);},4000);
+  document.getElementById('TC').appendChild(t);
+  requestAnimationFrame(function(){requestAnimationFrame(function(){t.classList.add('show');});});
+  setTimeout(function(){t.classList.remove('show');setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},400);},4000);
 }
 
-/* ============================================================
+/* ================================================================
    UTILITIES
-============================================================ */
-function fullName(s){return[(s&&s.firstName)||'',(s&&s.lastName)||''].filter(Boolean).join(' ').trim()||(s&&s.email&&s.email.split('@')[0])||'';}
-function initials(s){return[((s&&s.firstName)||'')[0],((s&&s.lastName)||'')[0]].filter(Boolean).join('').toUpperCase()||'?';}
+================================================================ */
+function fname(s){return[(s&&s.firstName)||'',(s&&s.lastName)||''].filter(Boolean).join(' ').trim()||(s&&s.email?s.email.split('@')[0]:'');}
+function inits(s){return[((s&&s.firstName)||'')[0],((s&&s.lastName)||'')[0]].filter(Boolean).join('').toUpperCase()||'?';}
 function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
-function todayStr(){return new Date().toISOString().split('T')[0];}
-function fmtDate(d){if(!d)return'—';try{return new Date(d+'T00:00:00').toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'});}catch(_){return d;}}
-function fmtTime(s){if(!s)return'';try{return new Date(s).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',hour12:true});}catch(_){return s;}}
-function duration(a,b){try{var ms=new Date(b)-new Date(a);return Math.floor(ms/3600000)+'h '+Math.floor((ms%3600000)/60000)+'m';}catch(_){return'—';}}
-function leaveEmoji(t){return{annual:'🌴',sick:'🤒',emergency:'🚨'}[t]||'📋';}
-function avColor(s){return['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#0ea5e9'][((s||'A').charCodeAt(0))%6];}
-function timeAgo(d){var s=Math.floor((Date.now()-d)/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
-function skeletons(n){return Array(n).fill('<div class="stat-card"><div style="height:70px;background:linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%);background-size:200%;animation:shimmer 1.5s infinite;border-radius:8px;"></div></div>').join('');}
-
+function ds(){return new Date().toISOString().split('T')[0];}
+function fd(d){if(!d)return'—';try{return new Date(d+'T00:00:00').toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'});}catch(e){return d;}}
+function ft(s){if(!s)return'';try{return new Date(s).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',hour12:true});}catch(e){return s;}}
+function dur(a,b){try{var ms=new Date(b)-new Date(a);return Math.floor(ms/3600000)+'h '+Math.floor((ms%3600000)/60000)+'m';}catch(e){return'—';}}
+function lei(t){return{annual:'🌴',sick:'🤒',emergency:'🚨'}[t]||'📋';}
+function avc(s){return['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#0ea5e9'][((s||'A').charCodeAt(0))%6];}
+function ago(d){var s=Math.floor((Date.now()-d)/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
 </script>
-
-<!-- Re-Auth Modal (for creating new staff accounts) -->
-<div class="modal-overlay" id="reAuthModal">
-  <div class="modal" style="max-width:400px;">
-    <div class="modal-header">
-      <div class="modal-title">Confirm Your Identity</div>
-      <button class="modal-close" onclick="_reAuthReject()">×</button>
-    </div>
-    <div class="modal-body">
-      <p style="font-size:14px;color:var(--muted);margin-bottom:18px;line-height:1.6;">
-        To create a new staff account, please re-enter your admin password to confirm.
-      </p>
-      <div class="field">
-        <label>Your Admin Password</label>
-        <input type="password" id="reAuthPass" placeholder="Enter your password"/>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="_reAuthReject()">Cancel</button>
-      <button class="btn btn-primary" onclick="_reAuthConfirm()">Confirm</button>
-    </div>
-  </div>
-</div>
-
 </body>
 </html>
