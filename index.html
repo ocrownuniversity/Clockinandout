@@ -210,6 +210,11 @@ table.dt tbody tr:hover td{background:#fafbfc;}
 /* Btn-icon */
 .bic{padding:7px;border-radius:7px;background:var(--bg);border:1.5px solid var(--border);color:var(--muted);cursor:pointer;font-size:14px;transition:all .15s;}
 .bic:hover{background:var(--al);color:var(--accent);border-color:var(--accent);}
+
+/* Topbar date/time */
+@media(max-width:480px){#TB_DATETIME{display:none!important;}}
+/* Greeting bar */
+#GREET_BAR{border-bottom:1px solid rgba(0,0,0,.08);}
 /* Scrollbar */
 ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px;}
 /* Page fade */
@@ -274,7 +279,7 @@ table.dt tbody tr:hover td{background:#fafbfc;}
       </div>
 
       <p id="PIN_HINT" style="text-align:center;font-size:12px;color:var(--muted);margin-top:4px;">
-        Demo admin PIN: <strong>5678</strong>
+        Enter your 4-digit PIN to sign in
       </p>
     </div>
   </div>
@@ -307,14 +312,27 @@ table.dt tbody tr:hover td{background:#fafbfc;}
         <button class="hbg" id="BTN_HBG">☰</button>
         <div class="tb-title" id="TB_TITLE">Dashboard</div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div id="TB_DATETIME" style="font-size:12px;color:var(--muted);text-align:right;line-height:1.4;display:none;">
+          <div id="TB_TIME" style="font-weight:700;color:var(--text);"></div>
+          <div id="TB_DATE"></div>
+        </div>
         <button class="nb-btn" id="BTN_NOTIF">
           🔔
           <span class="nb-dot hidden" id="NOTIF_DOT"></span>
         </button>
       </div>
     </div>
+    <!-- Greeting bar (shown after login) -->
+    <div id="GREET_BAR" class="hidden" style="background:linear-gradient(90deg,#1e3a8a,#2563eb);color:#fff;padding:10px 22px;display:flex;align-items:center;justify-content:space-between;font-size:13px;">
+      <div id="GREET_TXT" style="font-weight:600;"></div>
+      <div id="GREET_META" style="opacity:.75;font-size:12px;"></div>
+    </div>
     <div class="pc" id="PAGE"></div>
+    <div style="padding:16px 22px;border-top:1px solid var(--border);background:#fff;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted);">
+      <span>&#169; 2025 <b style="color:var(--text);">HRCore</b> &mdash; Staff Management System</span>
+      <span id="FOOTER_USER" style="display:flex;align-items:center;gap:6px;"></span>
+    </div>
   </div>
 
   <div class="np" id="NOTIF_PANEL">
@@ -416,7 +434,7 @@ table.dt tbody tr:hover td{background:#fafbfc;}
 /* ================================================================
    CONFIG — change ADMIN_PIN here or via Settings page in the app
 ================================================================ */
-var ADMIN_PIN   = '5678';
+var ADMIN_PIN   = '1990';
 var ADMIN_EMAIL = 'oladejiridwanopeyemi@gmail.com';
 var ADMIN_PASS  = 'HRCore_Secure_2024!';
 
@@ -461,6 +479,7 @@ auth.onAuthStateChanged(function(user) {
     loadProfile().then(function(){ startApp(); });
   } else {
     CU=null; SP=null;
+    var gb=document.getElementById('GREET_BAR'); if(gb) gb.classList.add('hidden');
     unsubs.forEach(function(u){try{u();}catch(e){}});
     unsubs=[];
     if(clockTmr) clearInterval(clockTmr);
@@ -539,7 +558,7 @@ function initRoleTabs() {
     this.classList.add('active');
     document.getElementById('TAB_EMP').classList.remove('active');
     document.getElementById('EMP_EMAIL_WRAP').classList.add('hidden');
-    document.getElementById('PIN_HINT').innerHTML='Demo admin PIN: <strong>5678</strong>';
+    document.getElementById('PIN_HINT').innerHTML='Enter your 4-digit PIN to sign in';
   });
   document.getElementById('TAB_EMP').addEventListener('click', function() {
     loginRole='employee'; pinVal=''; refreshDots();
@@ -637,7 +656,37 @@ function startApp() {
   buildSidebar();
   fetchGPS();
   loadNotifs();
+  showGreeting();
+  startTopbarClock();
   go(CR==='employee'?'my-attendance':'dashboard');
+}
+
+function showGreeting() {
+  var bar = document.getElementById('GREET_BAR');
+  var txt = document.getElementById('GREET_TXT');
+  var meta = document.getElementById('GREET_META');
+  if (!bar||!txt||!meta) return;
+  var hr = new Date().getHours();
+  var greet = hr<12?'Good Morning':hr<17?'Good Afternoon':'Good Evening';
+  var name = fname(SP)||'User';
+  txt.textContent = greet + ', ' + name + '! • ' + rlbl(CR);
+  var now = new Date();
+  meta.textContent = now.toLocaleDateString('en-NG',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  bar.classList.remove('hidden');
+}
+
+function startTopbarClock() {
+  var dtEl = document.getElementById('TB_DATETIME');
+  if (dtEl) dtEl.style.display = 'block';
+  function tickTop() {
+    var now = new Date();
+    var t = document.getElementById('TB_TIME');
+    var d = document.getElementById('TB_DATE');
+    if (t) t.textContent = now.toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
+    if (d) d.textContent = now.toLocaleDateString('en-NG',{day:'numeric',month:'short',year:'numeric'});
+  }
+  tickTop();
+  setInterval(tickTop, 1000);
 }
 
 /* ================================================================
