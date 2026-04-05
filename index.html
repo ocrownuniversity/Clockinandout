@@ -81,6 +81,7 @@ function renderPayTable() {
 }
 
 function openPayModal(id) {
+  /* Reset form */
   document.getElementById('F_PAY_ID').value = id||'';
   document.getElementById('F_PAY_UID').value = '';
   document.getElementById('F_PAY_MONTH').value = new Date().toISOString().slice(0,7);
@@ -90,41 +91,59 @@ function openPayModal(id) {
   document.getElementById('M_PAY_TITLE').textContent = id ? 'Edit Payroll' : 'Assign Salary';
   document.getElementById('BTN_SAVE_PAY').textContent = id ? 'Update Payroll' : 'Save Payroll';
 
-  /* Populate employee dropdown */
+  /* Show modal immediately with loading state */
   var sel = document.getElementById('F_PAY_EMP');
-  sel.innerHTML = '<option value="">Select employee…</option>';
-  staffList.forEach(function(s){
-    var opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = fname(s) + ' (' + (s.employeeID||s.id.slice(0,6)) + ')';
-    opt.dataset.name = fname(s);
-    opt.dataset.eid  = s.employeeID||'';
-    opt.dataset.uid  = s.uid||s.id;
-    sel.appendChild(opt);
-  });
+  sel.innerHTML = '<option value="">Loading employees…</option>';
+  sel.disabled = true;
+  openM('M_PAY');
 
-  if (id) {
-    var rec = payrollList.find(function(p){return p.id===id;});
-    if (rec) {
-      sel.value           = rec.employeeUID||'';
-      document.getElementById('F_PAY_MONTH').value   = rec.month||'';
-      document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
-      document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
-      document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
-      document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
-      document.getElementById('F_PAY_TAX').value     = rec.tax||0;
-      document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
-      document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
-      updatePayPreview();
+  /* Always fetch staff fresh from Firestore — never rely on cached staffList */
+  db.collection('staff').get().then(function(snap) {
+    var freshStaff = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    /* Also update the global cache */
+    if(freshStaff.length > 0) staffList = freshStaff;
+
+    sel.innerHTML = '<option value="">Select employee…</option>';
+    freshStaff.forEach(function(s){
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = fname(s) + ' (' + (s.employeeID || s.id.slice(0,6)) + ')';
+      opt.dataset.name = fname(s);
+      opt.dataset.eid  = s.employeeID||'';
+      opt.dataset.uid  = s.uid||s.id;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+
+    /* If editing, fill in fields after dropdown is populated */
+    if (id) {
+      var rec = payrollList.find(function(p){return p.id===id;});
+      if (rec) {
+        /* Match by employeeUID or employeeName */
+        for(var i=0;i<sel.options.length;i++){
+          var s2 = freshStaff.find(function(s){return (s.uid||s.id)===rec.employeeUID||s.id===rec.employeeUID;});
+          if(s2){ sel.value=s2.id; break; }
+        }
+        document.getElementById('F_PAY_MONTH').value   = rec.month||'';
+        document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
+        document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
+        document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
+        document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
+        document.getElementById('F_PAY_TAX').value     = rec.tax||0;
+        document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
+        document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
+        updatePayPreview();
+      }
     }
-  }
+  }).catch(function(e){ sel.innerHTML='<option value="">Error loading employees</option>'; sel.disabled=false; toast('Could not load staff: '+e.message,'error'); });
 
-  /* Live preview on input */
+  /* Live preview on input — remove old listeners by cloning nodes */
   ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){
+    var el = document.getElementById(i);
+    var fresh = el.cloneNode(true);
+    el.parentNode.replaceChild(fresh, el);
     document.getElementById(i).addEventListener('input', updatePayPreview);
   });
-
-  openM('M_PAY');
 }
 
 function updatePayPreview() {
@@ -429,6 +448,7 @@ function renderPayTable() {
 }
 
 function openPayModal(id) {
+  /* Reset form */
   document.getElementById('F_PAY_ID').value = id||'';
   document.getElementById('F_PAY_UID').value = '';
   document.getElementById('F_PAY_MONTH').value = new Date().toISOString().slice(0,7);
@@ -438,41 +458,59 @@ function openPayModal(id) {
   document.getElementById('M_PAY_TITLE').textContent = id ? 'Edit Payroll' : 'Assign Salary';
   document.getElementById('BTN_SAVE_PAY').textContent = id ? 'Update Payroll' : 'Save Payroll';
 
-  /* Populate employee dropdown */
+  /* Show modal immediately with loading state */
   var sel = document.getElementById('F_PAY_EMP');
-  sel.innerHTML = '<option value="">Select employee…</option>';
-  staffList.forEach(function(s){
-    var opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = fname(s) + ' (' + (s.employeeID||s.id.slice(0,6)) + ')';
-    opt.dataset.name = fname(s);
-    opt.dataset.eid  = s.employeeID||'';
-    opt.dataset.uid  = s.uid||s.id;
-    sel.appendChild(opt);
-  });
+  sel.innerHTML = '<option value="">Loading employees…</option>';
+  sel.disabled = true;
+  openM('M_PAY');
 
-  if (id) {
-    var rec = payrollList.find(function(p){return p.id===id;});
-    if (rec) {
-      sel.value           = rec.employeeUID||'';
-      document.getElementById('F_PAY_MONTH').value   = rec.month||'';
-      document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
-      document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
-      document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
-      document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
-      document.getElementById('F_PAY_TAX').value     = rec.tax||0;
-      document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
-      document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
-      updatePayPreview();
+  /* Always fetch staff fresh from Firestore — never rely on cached staffList */
+  db.collection('staff').get().then(function(snap) {
+    var freshStaff = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    /* Also update the global cache */
+    if(freshStaff.length > 0) staffList = freshStaff;
+
+    sel.innerHTML = '<option value="">Select employee…</option>';
+    freshStaff.forEach(function(s){
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = fname(s) + ' (' + (s.employeeID || s.id.slice(0,6)) + ')';
+      opt.dataset.name = fname(s);
+      opt.dataset.eid  = s.employeeID||'';
+      opt.dataset.uid  = s.uid||s.id;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+
+    /* If editing, fill in fields after dropdown is populated */
+    if (id) {
+      var rec = payrollList.find(function(p){return p.id===id;});
+      if (rec) {
+        /* Match by employeeUID or employeeName */
+        for(var i=0;i<sel.options.length;i++){
+          var s2 = freshStaff.find(function(s){return (s.uid||s.id)===rec.employeeUID||s.id===rec.employeeUID;});
+          if(s2){ sel.value=s2.id; break; }
+        }
+        document.getElementById('F_PAY_MONTH').value   = rec.month||'';
+        document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
+        document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
+        document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
+        document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
+        document.getElementById('F_PAY_TAX').value     = rec.tax||0;
+        document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
+        document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
+        updatePayPreview();
+      }
     }
-  }
+  }).catch(function(e){ sel.innerHTML='<option value="">Error loading employees</option>'; sel.disabled=false; toast('Could not load staff: '+e.message,'error'); });
 
-  /* Live preview on input */
+  /* Live preview on input — remove old listeners by cloning nodes */
   ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){
+    var el = document.getElementById(i);
+    var fresh = el.cloneNode(true);
+    el.parentNode.replaceChild(fresh, el);
     document.getElementById(i).addEventListener('input', updatePayPreview);
   });
-
-  openM('M_PAY');
 }
 
 function updatePayPreview() {
@@ -777,6 +815,7 @@ function renderPayTable() {
 }
 
 function openPayModal(id) {
+  /* Reset form */
   document.getElementById('F_PAY_ID').value = id||'';
   document.getElementById('F_PAY_UID').value = '';
   document.getElementById('F_PAY_MONTH').value = new Date().toISOString().slice(0,7);
@@ -786,41 +825,59 @@ function openPayModal(id) {
   document.getElementById('M_PAY_TITLE').textContent = id ? 'Edit Payroll' : 'Assign Salary';
   document.getElementById('BTN_SAVE_PAY').textContent = id ? 'Update Payroll' : 'Save Payroll';
 
-  /* Populate employee dropdown */
+  /* Show modal immediately with loading state */
   var sel = document.getElementById('F_PAY_EMP');
-  sel.innerHTML = '<option value="">Select employee…</option>';
-  staffList.forEach(function(s){
-    var opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = fname(s) + ' (' + (s.employeeID||s.id.slice(0,6)) + ')';
-    opt.dataset.name = fname(s);
-    opt.dataset.eid  = s.employeeID||'';
-    opt.dataset.uid  = s.uid||s.id;
-    sel.appendChild(opt);
-  });
+  sel.innerHTML = '<option value="">Loading employees…</option>';
+  sel.disabled = true;
+  openM('M_PAY');
 
-  if (id) {
-    var rec = payrollList.find(function(p){return p.id===id;});
-    if (rec) {
-      sel.value           = rec.employeeUID||'';
-      document.getElementById('F_PAY_MONTH').value   = rec.month||'';
-      document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
-      document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
-      document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
-      document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
-      document.getElementById('F_PAY_TAX').value     = rec.tax||0;
-      document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
-      document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
-      updatePayPreview();
+  /* Always fetch staff fresh from Firestore — never rely on cached staffList */
+  db.collection('staff').get().then(function(snap) {
+    var freshStaff = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    /* Also update the global cache */
+    if(freshStaff.length > 0) staffList = freshStaff;
+
+    sel.innerHTML = '<option value="">Select employee…</option>';
+    freshStaff.forEach(function(s){
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = fname(s) + ' (' + (s.employeeID || s.id.slice(0,6)) + ')';
+      opt.dataset.name = fname(s);
+      opt.dataset.eid  = s.employeeID||'';
+      opt.dataset.uid  = s.uid||s.id;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+
+    /* If editing, fill in fields after dropdown is populated */
+    if (id) {
+      var rec = payrollList.find(function(p){return p.id===id;});
+      if (rec) {
+        /* Match by employeeUID or employeeName */
+        for(var i=0;i<sel.options.length;i++){
+          var s2 = freshStaff.find(function(s){return (s.uid||s.id)===rec.employeeUID||s.id===rec.employeeUID;});
+          if(s2){ sel.value=s2.id; break; }
+        }
+        document.getElementById('F_PAY_MONTH').value   = rec.month||'';
+        document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
+        document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
+        document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
+        document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
+        document.getElementById('F_PAY_TAX').value     = rec.tax||0;
+        document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
+        document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
+        updatePayPreview();
+      }
     }
-  }
+  }).catch(function(e){ sel.innerHTML='<option value="">Error loading employees</option>'; sel.disabled=false; toast('Could not load staff: '+e.message,'error'); });
 
-  /* Live preview on input */
+  /* Live preview on input — remove old listeners by cloning nodes */
   ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){
+    var el = document.getElementById(i);
+    var fresh = el.cloneNode(true);
+    el.parentNode.replaceChild(fresh, el);
     document.getElementById(i).addEventListener('input', updatePayPreview);
   });
-
-  openM('M_PAY');
 }
 
 function updatePayPreview() {
@@ -1285,6 +1342,11 @@ table.dt tbody tr:hover td{background:#fafbfc;}
   .pay-slip{border:none;box-shadow:none;padding:0;}
   body{background:#fff;}
 }
+
+/* Shift selector buttons */
+.shift-btn{padding:10px 8px;border:2px solid rgba(255,255,255,.25);border-radius:10px;background:rgba(255,255,255,.1);color:#fff;font:600 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer;transition:all .18s;text-align:center;min-width:80px;}
+.shift-btn:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.5);}
+.shift-btn.active{background:#fff;color:var(--accent);border-color:#fff;}
 /* Scrollbar */
 ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px;}
 /* Page fade */
@@ -2074,7 +2136,7 @@ function pgAtt() {
     +'<input type="text" id="ATT_SRCH" placeholder="Name or dept…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
     +'</div></div>'
     +'<div class="card"><div class="tw"><table class="dt">'
-    +'<thead><tr><th>Employee</th><th>Dept</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th></tr></thead>'
+    +'<thead><tr><th>Employee</th><th>Dept</th><th>Shift</th><th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Status</th></tr></thead>'
     +'<tbody id="ATT_BODY"></tbody></table></div></div></div>';
   document.getElementById('ATT_DATE').addEventListener('change', loadAttData);
   document.getElementById('ATT_SRCH').addEventListener('input', filterAtt);
@@ -2095,9 +2157,13 @@ function filterAtt(){
   var tb=document.getElementById('ATT_BODY'); if(!tb)return;
   var list=attList.filter(function(r){return !q||(r.employeeName||'').toLowerCase().includes(q)||(r.department||'').toLowerCase().includes(q);});
   if(!list.length){tb.innerHTML='<tr><td colspan="6"><div class="nd"><p>No records for this date.</p></div></td></tr>';return;}
-  tb.innerHTML=list.map(function(r){return '<tr>'
+  tb.innerHTML=list.map(function(r){
+    var sIcon={'full':'☀️','morning':'🌅','afternoon':'🌇'}[r.shift||'full']||'☀️';
+    var sLabel=r.shiftLabel||'Full Day';
+    return '<tr>'
     +'<td><b>'+(r.employeeName||'—')+'</b><div style="font-size:11px;color:var(--muted);">'+(r.employeeID||'')+'</div></td>'
     +'<td><span class="dept-tag">'+(r.department||'—')+'</span></td>'
+    +'<td style="font-size:12px;">'+sIcon+' '+sLabel+'</td>'
     +'<td style="font-size:13px;">'+(ft(r.clockIn)||'—')+'</td>'
     +'<td style="font-size:13px;">'+(r.clockOut?ft(r.clockOut):'<span style="color:var(--muted);">Still In</span>')+'</td>'
     +'<td style="font-size:13px;color:var(--muted);">'+(r.clockIn&&r.clockOut?dur(r.clockIn,r.clockOut):'—')+'</td>'
@@ -2115,6 +2181,13 @@ function pgMyAtt(){
     +'<div class="ch-time" id="CT">00:00:00</div>'
     +'<div class="ch-date" id="CD">—</div>'
     +'<div class="ch-st" id="CST"><div class="cdot out"></div>Not clocked in</div>'
+    +'<div style="margin-bottom:14px;">'
+    +'<div style="font-size:11px;font-weight:700;opacity:.7;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Select Shift</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<button class="shift-btn active" data-shift="full" style="flex:1;">☀️ Full Day<div style="font-size:10px;opacity:.75;margin-top:2px;">9:00 AM – 5:00 PM</div></button>'
+    +'<button class="shift-btn" data-shift="morning" style="flex:1;">🌅 Morning<div style="font-size:10px;opacity:.75;margin-top:2px;">9:00 AM – 1:00 PM</div></button>'
+    +'<button class="shift-btn" data-shift="afternoon" style="flex:1;">🌇 Afternoon<div style="font-size:10px;opacity:.75;margin-top:2px;">3:00 PM – 7:00 PM</div></button>'
+    +'</div></div>'
     +'<div class="ch-btns">'
     +'<button class="btn-ci" id="BTN_CI">⏱ Clock In</button>'
     +'<button class="btn-co hidden" id="BTN_CO">✋ Clock Out</button>'
@@ -2128,6 +2201,19 @@ function pgMyAtt(){
 
   document.getElementById('BTN_CI').addEventListener('click',function(){ clockIt('IN'); });
   document.getElementById('BTN_CO').addEventListener('click',function(){ clockIt('OUT'); });
+
+  /* Shift selector */
+  var selectedShift = 'full';
+  document.querySelectorAll('.shift-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.shift-btn').forEach(function(b){ b.classList.remove('active'); });
+      this.classList.add('active');
+      selectedShift = this.dataset.shift;
+      window._selectedShift = selectedShift;
+    });
+  });
+  window._selectedShift = 'full';
+
   runClock();
   checkClockStatus();
   loadMyHist();
@@ -2166,23 +2252,46 @@ function clockIt(type){
   var btn=type==='IN'?document.getElementById('BTN_CI'):document.getElementById('BTN_CO');
   if(!btn)return;
   btn.disabled=true; btn.textContent='Recording…';
-  var today=ds(), now=new Date().toISOString();
-  var isLate=(type==='IN'&&new Date().getHours()>=9);
+  var today=ds(), now=new Date(), nowISO=now.toISOString();
+  var hour=now.getHours(), min=now.getMinutes();
+
+  /* Shift-aware late detection:
+     full day    → late after 09:00
+     morning     → late after 09:00
+     afternoon   → late after 15:00  */
+  var shift = window._selectedShift||'full';
+  var lateAfterHour = (shift==='afternoon') ? 15 : 9;
+  var lateAfterMin  = 0;
+  var isLate = (type==='IN') && ( hour > lateAfterHour || (hour===lateAfterHour && min > lateAfterMin) );
+
+  var shiftLabel = {full:'Full Day',morning:'Morning',afternoon:'Afternoon'}[shift]||'Full Day';
+
   db.collection('attendance').where('uid','==',CU.uid).where('date','==',today).limit(1).get()
     .then(function(ex){
       if(type==='IN'){
         if(!ex.empty){toast('Already clocked in today','warn');return null;}
-        return db.collection('attendance').add({uid:CU.uid,employeeName:fname(SP),employeeID:SP.employeeID||'',department:SP.department||'',position:SP.position||'',date:today,clockIn:now,clockInTs:firebase.firestore.FieldValue.serverTimestamp(),late:isLate,location:gps||null});
+        return db.collection('attendance').add({
+          uid:CU.uid, employeeName:fname(SP), employeeID:SP.employeeID||'',
+          department:SP.department||'', position:SP.position||'',
+          date:today, clockIn:nowISO, clockInTs:firebase.firestore.FieldValue.serverTimestamp(),
+          late:isLate, shift:shift, shiftLabel:shiftLabel, location:gps||null
+        });
       } else {
         if(ex.empty){toast('No clock-in found for today','error');return null;}
-        return db.collection('attendance').doc(ex.docs[0].id).update({clockOut:now,clockOutTs:firebase.firestore.FieldValue.serverTimestamp()});
+        return db.collection('attendance').doc(ex.docs[0].id).update({
+          clockOut:nowISO, clockOutTs:firebase.firestore.FieldValue.serverTimestamp()
+        });
       }
     })
     .then(function(res){
       if(res===null)return;
-      toast(type==='IN'?(isLate?'Clocked in — you\'re a bit late':'Clocked in successfully! ✅'):'Clocked out. Have a great day! 👋','success');
+      if(type==='IN'){
+        toast(isLate?'Clocked in ('+shiftLabel+') — you\'re a bit late':'Clocked in ('+shiftLabel+') successfully! ✅','success');
+      } else {
+        toast('Clocked out. Have a great day! 👋','success');
+      }
       checkClockStatus(); loadMyHist(); loadMyStats();
-      pushNotif({title:fname(SP)+' '+(type==='IN'?'clocked in':'clocked out'),body:new Date().toLocaleTimeString('en-NG')+' · '+(SP.department||''),icon:type==='IN'?'⏱':'✋'});
+      pushNotif({title:fname(SP)+' '+(type==='IN'?'clocked in':'clocked out'),body:new Date().toLocaleTimeString('en-NG')+' · '+shiftLabel+' · '+(SP.department||''),icon:type==='IN'?'⏱':'✋'});
     })
     .catch(function(e){toast('Error: '+e.message,'error');})
     .finally(function(){if(btn){btn.disabled=false;btn.textContent=type==='IN'?'⏱ Clock In':'✋ Clock Out';}});
@@ -2196,8 +2305,9 @@ function loadMyHist(){
     var hdocs=snap.docs.slice().sort(function(a,b){return (b.data().date||'').localeCompare(a.data().date||'');});
     body.innerHTML='<ul class="tl">'+hdocs.map(function(doc){
       var d=doc.data();
+      var sIcon2={'full':'☀️','morning':'🌅','afternoon':'🌇'}[d.shift||'full']||'☀️';
       return '<li class="tli"><div class="tld in">✓</div>'
-        +'<div><div style="font-weight:600;font-size:14px;">'+fd(d.date)+(d.late?' <span class="late-tag" style="margin-left:6px;">LATE</span>':'')+'</div>'
+        +'<div><div style="font-weight:600;font-size:14px;">'+fd(d.date)+' <span style="font-size:12px;font-weight:400;color:rgba(255,255,255,.7);">'+sIcon2+' '+(d.shiftLabel||'Full Day')+'</span>'+(d.late?' <span class="late-tag" style="margin-left:4px;">LATE</span>':'')+'</div>'
         +'<div style="font-size:12px;color:var(--muted);margin-top:2px;">In: '+(ft(d.clockIn)||'—')+' · Out: '+(d.clockOut?ft(d.clockOut):'Still In')+' · '+(d.clockIn&&d.clockOut?dur(d.clockIn,d.clockOut):'—')+'</div></div></li>';
     }).join('')+'</ul>';
   });
@@ -2570,6 +2680,7 @@ function renderPayTable() {
 }
 
 function openPayModal(id) {
+  /* Reset form */
   document.getElementById('F_PAY_ID').value = id||'';
   document.getElementById('F_PAY_UID').value = '';
   document.getElementById('F_PAY_MONTH').value = new Date().toISOString().slice(0,7);
@@ -2579,41 +2690,59 @@ function openPayModal(id) {
   document.getElementById('M_PAY_TITLE').textContent = id ? 'Edit Payroll' : 'Assign Salary';
   document.getElementById('BTN_SAVE_PAY').textContent = id ? 'Update Payroll' : 'Save Payroll';
 
-  /* Populate employee dropdown */
+  /* Show modal immediately with loading state */
   var sel = document.getElementById('F_PAY_EMP');
-  sel.innerHTML = '<option value="">Select employee…</option>';
-  staffList.forEach(function(s){
-    var opt = document.createElement('option');
-    opt.value = s.id;
-    opt.textContent = fname(s) + ' (' + (s.employeeID||s.id.slice(0,6)) + ')';
-    opt.dataset.name = fname(s);
-    opt.dataset.eid  = s.employeeID||'';
-    opt.dataset.uid  = s.uid||s.id;
-    sel.appendChild(opt);
-  });
+  sel.innerHTML = '<option value="">Loading employees…</option>';
+  sel.disabled = true;
+  openM('M_PAY');
 
-  if (id) {
-    var rec = payrollList.find(function(p){return p.id===id;});
-    if (rec) {
-      sel.value           = rec.employeeUID||'';
-      document.getElementById('F_PAY_MONTH').value   = rec.month||'';
-      document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
-      document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
-      document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
-      document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
-      document.getElementById('F_PAY_TAX').value     = rec.tax||0;
-      document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
-      document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
-      updatePayPreview();
+  /* Always fetch staff fresh from Firestore — never rely on cached staffList */
+  db.collection('staff').get().then(function(snap) {
+    var freshStaff = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    /* Also update the global cache */
+    if(freshStaff.length > 0) staffList = freshStaff;
+
+    sel.innerHTML = '<option value="">Select employee…</option>';
+    freshStaff.forEach(function(s){
+      var opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = fname(s) + ' (' + (s.employeeID || s.id.slice(0,6)) + ')';
+      opt.dataset.name = fname(s);
+      opt.dataset.eid  = s.employeeID||'';
+      opt.dataset.uid  = s.uid||s.id;
+      sel.appendChild(opt);
+    });
+    sel.disabled = false;
+
+    /* If editing, fill in fields after dropdown is populated */
+    if (id) {
+      var rec = payrollList.find(function(p){return p.id===id;});
+      if (rec) {
+        /* Match by employeeUID or employeeName */
+        for(var i=0;i<sel.options.length;i++){
+          var s2 = freshStaff.find(function(s){return (s.uid||s.id)===rec.employeeUID||s.id===rec.employeeUID;});
+          if(s2){ sel.value=s2.id; break; }
+        }
+        document.getElementById('F_PAY_MONTH').value   = rec.month||'';
+        document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
+        document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
+        document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
+        document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
+        document.getElementById('F_PAY_TAX').value     = rec.tax||0;
+        document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
+        document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
+        updatePayPreview();
+      }
     }
-  }
+  }).catch(function(e){ sel.innerHTML='<option value="">Error loading employees</option>'; sel.disabled=false; toast('Could not load staff: '+e.message,'error'); });
 
-  /* Live preview on input */
+  /* Live preview on input — remove old listeners by cloning nodes */
   ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){
+    var el = document.getElementById(i);
+    var fresh = el.cloneNode(true);
+    el.parentNode.replaceChild(fresh, el);
     document.getElementById(i).addEventListener('input', updatePayPreview);
   });
-
-  openM('M_PAY');
 }
 
 function updatePayPreview() {
