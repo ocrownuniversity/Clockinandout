@@ -5,9 +5,1050 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>HRCore — Staff Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js">
+/* ================================================================
+   PAGE: PAYROLL MANAGEMENT (Admin/HR)
+================================================================ */
+function pgPayroll() {
+  var pg = document.getElementById('PAGE');
+  var curMonth = new Date().toISOString().slice(0,7);
+  pg.innerHTML = '<div class="pf">'
+    + '<div class="sh"><div class="st">Payroll Management</div>'
+    + '<button class="btn btn-primary" id="BTN_ADD_PAY">+ Assign Salary</button></div>'
+    + '<div class="card" style="margin-bottom:14px;"><div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">'
+    + '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Filter Month</div>'
+    + '<input type="month" id="PAY_MONTH_FILTER" value="'+curMonth+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    + '<div style="flex:1;min-width:140px;"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Search</div>'
+    + '<input type="text" id="PAY_SRCH" placeholder="Employee name or ID…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    + '</div></div>'
+    + '<div class="card"><div class="tw"><table class="dt">'
+    + '<thead><tr><th>Employee</th><th>Month</th><th>Basic</th><th>Allowances</th><th>Bonus</th><th>Deductions</th><th>Net Salary</th><th>Status</th><th></th></tr></thead>'
+    + '<tbody id="PAY_BODY"><tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted);">Loading…</td></tr></tbody>'
+    + '</table></div></div></div>';
+
+  document.getElementById('BTN_ADD_PAY').addEventListener('click', function(){ openPayModal(null); });
+  document.getElementById('PAY_MONTH_FILTER').addEventListener('change', loadPayroll);
+  document.getElementById('PAY_SRCH').addEventListener('input', loadPayroll);
+  loadPayroll();
+}
+
+var payrollList = [];
+
+function loadPayroll() {
+  var month = (document.getElementById('PAY_MONTH_FILTER')||{value:''}).value;
+  var q = (document.getElementById('PAY_SRCH')||{value:''}).value.toLowerCase();
+  var tb = document.getElementById('PAY_BODY'); if(!tb)return;
+  tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">Loading…</td></tr>';
+
+  var ref = db.collection('payroll');
+  if (month) ref = ref.where('month','==',month);
+  ref.limit(200).get().then(function(snap){
+    payrollList = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    if(q) payrollList = payrollList.filter(function(p){return (p.employeeName||'').toLowerCase().includes(q)||(p.employeeID||'').toLowerCase().includes(q);});
+    payrollList.sort(function(a,b){return (b.month||'').localeCompare(a.month||'');});
+    renderPayTable();
+  }).catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--red);">Error: '+e.message+'</td></tr>'; });
+}
+
+function renderPayTable() {
+  var tb = document.getElementById('PAY_BODY'); if(!tb)return;
+  if(!payrollList.length){tb.innerHTML='<tr><td colspan="9"><div class="nd"><div class="nd-i">💰</div><p>No payroll records found.</p></div></td></tr>';return;}
+  tb.innerHTML = payrollList.map(function(p){
+    var gross = (p.basic||0)+(p.housing||0)+(p.transport||0)+(p.bonus||0);
+    var ded   = (p.tax||0)+(p.deductions||0);
+    var net   = gross - ded;
+    return '<tr>'
+      +'<td><b>'+p.employeeName+'</b><div style="font-size:11px;color:var(--muted);">'+(p.employeeID||'')+'</div></td>'
+      +'<td><span class="month-pill">'+p.month+'</span></td>'
+      +'<td style="font-size:13px;">'+fmt(p.basic||0)+'</td>'
+      +'<td style="font-size:13px;">'+fmt((p.housing||0)+(p.transport||0))+'</td>'
+      +'<td style="font-size:13px;color:var(--green);">'+fmt(p.bonus||0)+'</td>'
+      +'<td style="font-size:13px;color:var(--red);">'+fmt(ded)+'</td>'
+      +'<td style="font-weight:700;color:var(--accent);">'+fmt(net)+'</td>'
+      +'<td><span class="badge '+(p.paid?'b-green':'b-amber')+'">'+(p.paid?'Paid':'Pending')+'</span></td>'
+      +'<td><div style="display:flex;gap:5px;">'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="slip" title="View Payslip">🧾</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="edit" title="Edit">✏️</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="mark" title="'+(p.paid?'Unmark Paid':'Mark Paid')+'">'+(p.paid?'↩':'✅')+'</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="del" title="Delete">🗑️</button>'
+      +'</div></td></tr>';
+  }).join('');
+
+  document.querySelectorAll('[data-act="slip"]').forEach(function(b){ b.addEventListener('click',function(){ viewPayslip(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="edit"]').forEach(function(b){ b.addEventListener('click',function(){ openPayModal(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="mark"]').forEach(function(b){ b.addEventListener('click',function(){ togglePaid(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="del"]').forEach(function(b){ b.addEventListener('click',function(){ confirmDel(this.dataset.pid,'payroll','Delete this payroll record?'); }); });
+}
+
+function openPayModal(id) {
+  document.getElementById('F_PAY_ID').value = id||'';
+  document.getElementById('F_PAY_UID').value = '';
+  document.getElementById('F_PAY_MONTH').value = new Date().toISOString().slice(0,7);
+  ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){ document.getElementById(i).value=''; });
+  document.getElementById('F_PAY_NOTE').value = '';
+  document.getElementById('PAY_PREVIEW').style.display = 'none';
+  document.getElementById('M_PAY_TITLE').textContent = id ? 'Edit Payroll' : 'Assign Salary';
+  document.getElementById('BTN_SAVE_PAY').textContent = id ? 'Update Payroll' : 'Save Payroll';
+
+  /* Populate employee dropdown */
+  var sel = document.getElementById('F_PAY_EMP');
+  sel.innerHTML = '<option value="">Select employee…</option>';
+  staffList.forEach(function(s){
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = fname(s) + ' (' + (s.employeeID||s.id.slice(0,6)) + ')';
+    opt.dataset.name = fname(s);
+    opt.dataset.eid  = s.employeeID||'';
+    opt.dataset.uid  = s.uid||s.id;
+    sel.appendChild(opt);
+  });
+
+  if (id) {
+    var rec = payrollList.find(function(p){return p.id===id;});
+    if (rec) {
+      sel.value           = rec.employeeUID||'';
+      document.getElementById('F_PAY_MONTH').value   = rec.month||'';
+      document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
+      document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
+      document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
+      document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
+      document.getElementById('F_PAY_TAX').value     = rec.tax||0;
+      document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
+      document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
+      updatePayPreview();
+    }
+  }
+
+  /* Live preview on input */
+  ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){
+    document.getElementById(i).addEventListener('input', updatePayPreview);
+  });
+
+  openM('M_PAY');
+}
+
+function updatePayPreview() {
+  var basic    = parseFloat(document.getElementById('F_PAY_BASIC').value)||0;
+  var housing  = parseFloat(document.getElementById('F_PAY_HOUSING').value)||0;
+  var trans    = parseFloat(document.getElementById('F_PAY_TRANS').value)||0;
+  var bonus    = parseFloat(document.getElementById('F_PAY_BONUS').value)||0;
+  var tax      = parseFloat(document.getElementById('F_PAY_TAX').value)||0;
+  var deduct   = parseFloat(document.getElementById('F_PAY_DEDUCT').value)||0;
+  var gross = basic+housing+trans+bonus;
+  var ded   = tax+deduct;
+  var net   = gross-ded;
+  var prev = document.getElementById('PAY_PREVIEW');
+  if(gross>0) {
+    prev.style.display = 'block';
+    document.getElementById('PP_GROSS').textContent = fmt(gross);
+    document.getElementById('PP_DED').textContent   = fmt(ded);
+    document.getElementById('PP_NET').textContent   = fmt(net);
+  }
+}
+
+function savePayroll() {
+  var id     = document.getElementById('F_PAY_ID').value;
+  var sel    = document.getElementById('F_PAY_EMP');
+  var empOpt = sel.options[sel.selectedIndex];
+  var empId  = sel.value;
+  if(!empId){ toast('Select an employee','error'); return; }
+  var month   = document.getElementById('F_PAY_MONTH').value;
+  if(!month){ toast('Select a month','error'); return; }
+  var basic    = parseFloat(document.getElementById('F_PAY_BASIC').value)||0;
+  var housing  = parseFloat(document.getElementById('F_PAY_HOUSING').value)||0;
+  var transport= parseFloat(document.getElementById('F_PAY_TRANS').value)||0;
+  var bonus    = parseFloat(document.getElementById('F_PAY_BONUS').value)||0;
+  var tax      = parseFloat(document.getElementById('F_PAY_TAX').value)||0;
+  var deductions=parseFloat(document.getElementById('F_PAY_DEDUCT').value)||0;
+  var notes   = document.getElementById('F_PAY_NOTE').value.trim();
+  var gross   = basic+housing+transport+bonus;
+  var net     = gross-tax-deductions;
+
+  /* Find staff record to get uid */
+  var staff   = staffList.find(function(s){return s.id===empId;});
+  var empName = empOpt.dataset.name || (staff?fname(staff):'Unknown');
+  var empEID  = empOpt.dataset.eid  || (staff?staff.employeeID||'':'');
+  var empUID  = staff ? (staff.uid||staff.id) : empId;
+
+  var data = {employeeUID:empUID, employeeID:empEID, employeeName:empName, month:month, basic:basic, housing:housing, transport:transport, bonus:bonus, tax:tax, deductions:deductions, notes:notes, gross:gross, net:net, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  var btn = document.getElementById('BTN_SAVE_PAY');
+  btn.disabled=true; btn.textContent='Saving…';
+
+  var p = id ? db.collection('payroll').doc(id).update(data) : db.collection('payroll').add(Object.assign({paid:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()},data));
+  p.then(function(){ toast(id?'Payroll updated':'Payroll saved','success'); closeM('M_PAY'); loadPayroll(); })
+   .catch(function(e){ toast('Error: '+e.message,'error'); })
+   .finally(function(){ btn.disabled=false; btn.textContent=id?'Update Payroll':'Save Payroll'; });
+}
+
+function togglePaid(id) {
+  var rec = payrollList.find(function(p){return p.id===id;}); if(!rec)return;
+  db.collection('payroll').doc(id).update({paid:!rec.paid}).then(function(){ loadPayroll(); toast(rec.paid?'Marked as pending':'Marked as paid','success'); }).catch(function(e){toast('Error: '+e.message,'error');});
+}
+
+function viewPayslip(id) {
+  var rec = payrollList.find(function(p){return p.id===id;}); if(!rec)return;
+  var gross = (rec.basic||0)+(rec.housing||0)+(rec.transport||0)+(rec.bonus||0);
+  var ded   = (rec.tax||0)+(rec.deductions||0);
+  var net   = gross-ded;
+  var body  = document.getElementById('PAYSLIP_BODY'); if(!body)return;
+  body.innerHTML = '<div class="pay-slip">'
+    +'<div class="pay-slip-header">'
+    +'<div class="pay-slip-logo">HRCore</div>'
+    +'<div class="pay-slip-title">Employee Payslip</div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:12px;font-size:13px;">'
+    +'<div><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Employee</div><b>'+rec.employeeName+'</b></div>'
+    +'<div style="text-align:right;"><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Employee ID</div><b>'+rec.employeeID+'</b></div>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px;">'
+    +'<div><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Pay Period</div><b>'+rec.month+'</b></div>'
+    +'<div style="text-align:right;"><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Status</div>'
+    +'<span class="badge '+(rec.paid?'b-green':'b-amber')+'">'+(rec.paid?'Paid':'Pending')+'</span></div>'
+    +'</div></div>'
+    +'<div class="pay-section-title">Earnings</div>'
+    +'<div class="pay-row"><span>Basic Salary</span><span class="pay-amt">'+fmt(rec.basic||0)+'</span></div>'
+    +(rec.housing?'<div class="pay-row"><span>Housing Allowance</span><span class="pay-amt">'+fmt(rec.housing)+'</span></div>':'')
+    +(rec.transport?'<div class="pay-row"><span>Transport Allowance</span><span class="pay-amt">'+fmt(rec.transport)+'</span></div>':'')
+    +(rec.bonus?'<div class="pay-row"><span>Bonus</span><span class="pay-amt" style="color:var(--green);">'+fmt(rec.bonus)+'</span></div>':'')
+    +'<div class="pay-row" style="font-weight:700;"><span>Gross Earnings</span><span class="pay-amt">'+fmt(gross)+'</span></div>'
+    +'<div class="pay-section-title">Deductions</div>'
+    +(rec.tax?'<div class="pay-row deduct"><span>Tax</span><span class="pay-amt">-'+fmt(rec.tax)+'</span></div>':'')
+    +(rec.deductions?'<div class="pay-row deduct"><span>Other Deductions</span><span class="pay-amt">-'+fmt(rec.deductions)+'</span></div>':'')
+    +(!rec.tax&&!rec.deductions?'<div class="pay-row"><span style="color:var(--muted);">No deductions</span><span class="pay-amt">'+fmt(0)+'</span></div>':'')
+    +'<div class="pay-row total"><span>NET SALARY</span><span class="pay-amt">'+fmt(net)+'</span></div>'
+    +(rec.notes?'<div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--muted);"><b>Notes:</b> '+rec.notes+'</div>':'')
+    +'<div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);text-align:center;">Generated by HRCore • '+new Date().toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})+'</div>'
+    +'</div>';
+  openM('M_PAYSLIP');
+}
+
+/* ================================================================
+   PAGE: PAYROLL DASHBOARD
+================================================================ */
+function pgPayrollDash() {
+  var pg = document.getElementById('PAGE');
+  var curMonth = new Date().toISOString().slice(0,7);
+  pg.innerHTML = '<div class="pf">'
+    +'<div class="sh"><div class="st">Payroll Dashboard</div>'
+    +'<input type="month" id="PDASH_MONTH" value="'+curMonth+'" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/>'
+    +'</div>'
+    +'<div id="PDASH_CONTENT"><div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div></div>'
+    +'</div>';
+  document.getElementById('PDASH_MONTH').addEventListener('change', function(){ loadPayrollDash(this.value); });
+  loadPayrollDash(curMonth);
+}
+
+function loadPayrollDash(month) {
+  var el = document.getElementById('PDASH_CONTENT'); if(!el)return;
+  el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div>';
+  db.collection('payroll').where('month','==',month).limit(200).get().then(function(snap){
+    var records = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    var totalPayroll = records.reduce(function(sum,r){return sum+(r.net||0);},0);
+    var totalGross   = records.reduce(function(sum,r){return sum+(r.gross||0);},0);
+    var totalDed     = records.reduce(function(sum,r){return sum+(r.tax||0)+(r.deductions||0);},0);
+    var totalBonus   = records.reduce(function(sum,r){return sum+(r.bonus||0);},0);
+    var paidCount    = records.filter(function(r){return r.paid;}).length;
+    var pendingCount = records.length - paidCount;
+
+    el.innerHTML = ''
+      /* Summary cards */
+      +'<div class="pay-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:20px;">'
+      +'<div class="salary-card"><div class="salary-card-label">Total Payroll</div><div class="salary-card-amount">'+fmt(totalPayroll)+'</div><div class="salary-card-meta">Net · '+month+'</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--accent);">'+records.length+'</div><div class="pay-stat-label">Total Records</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--green);">'+paidCount+'</div><div class="pay-stat-label">Paid</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--amber);">'+pendingCount+'</div><div class="pay-stat-label">Pending</div></div>'
+      +'</div>'
+      /* Breakdown card */
+      +'<div class="card cp" style="margin-bottom:16px;">'
+      +'<div class="ct" style="margin-bottom:16px;">Salary Breakdown — <span class="month-pill">'+month+'</span></div>'
+      +'<div class="pay-row"><span>Total Gross Earnings</span><span class="pay-amt">'+fmt(totalGross)+'</span></div>'
+      +'<div class="pay-row deduct"><span>Total Deductions</span><span class="pay-amt">-'+fmt(totalDed)+'</span></div>'
+      +'<div class="pay-row"><span>Total Bonuses Paid</span><span class="pay-amt" style="color:var(--green);">'+fmt(totalBonus)+'</span></div>'
+      +'<div class="pay-row total"><span>Total Net Payroll</span><span class="pay-amt">'+fmt(totalPayroll)+'</span></div>'
+      +'</div>'
+      /* Per-employee table */
+      +'<div class="card"><div class="ch"><div class="ct">Employee Salary Summary</div></div>'
+      +'<div class="tw"><table class="dt"><thead><tr><th>Employee</th><th>Gross</th><th>Deductions</th><th>Net Salary</th><th>Status</th></tr></thead><tbody>'
+      +(records.length?records.sort(function(a,b){return (b.net||0)-(a.net||0);}).map(function(r){
+        return '<tr>'
+          +'<td><b>'+r.employeeName+'</b><div style="font-size:11px;color:var(--muted);">'+(r.employeeID||'')+'</div></td>'
+          +'<td style="font-size:13px;">'+fmt(r.gross||0)+'</td>'
+          +'<td style="font-size:13px;color:var(--red);">-'+fmt((r.tax||0)+(r.deductions||0))+'</td>'
+          +'<td style="font-weight:700;color:var(--accent);">'+fmt(r.net||0)+'</td>'
+          +'<td><span class="badge '+(r.paid?'b-green':'b-amber')+'">'+(r.paid?'Paid':'Pending')+'</span></td>'
+          +'</tr>';
+      }).join(''):'<tr><td colspan="5"><div class="nd"><p>No payroll records for this month.</p></div></td></tr>')
+      +'</tbody></table></div></div>';
+  }).catch(function(e){ if(el)el.innerHTML='<div class="nd"><p style="color:var(--red);">Error: '+e.message+'</p></div>'; });
+}
+
+/* ================================================================
+   PAGE: MY PAYSLIPS (Employee)
+================================================================ */
+function pgMyPayslips() {
+  var pg = document.getElementById('PAGE');
+  pg.innerHTML = '<div class="pf">'
+    +'<div class="sh"><div class="st">My Payslips</div></div>'
+    +'<div id="MY_PAY_LIST"><div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div></div>'
+    +'</div>';
+
+  db.collection('payroll').where('employeeUID','==',CU.uid).limit(50).get().then(function(snap){
+    var list = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    list.sort(function(a,b){return (b.month||'').localeCompare(a.month||'');});
+    var el = document.getElementById('MY_PAY_LIST'); if(!el)return;
+    if(!list.length){el.innerHTML='<div class="nd"><div class="nd-i">🧾</div><p>No payslips found yet.</p></div>';return;}
+
+    /* Summary card for latest month */
+    var latest = list[0];
+    var lNet = latest.net||0;
+    var lGross = latest.gross||0;
+    var lDed = (latest.tax||0)+(latest.deductions||0);
+
+    el.innerHTML = '<div class="salary-card" style="margin-bottom:20px;">'
+      +'<div class="salary-card-label">Latest Net Salary</div>'
+      +'<div class="salary-card-amount">'+fmt(lNet)+'</div>'
+      +'<div class="salary-card-meta">'+latest.month+' · '+(latest.paid?'✅ Paid':'⏳ Pending')+'</div>'
+      +'</div>'
+      +'<div class="card"><div class="ch"><div class="ct">Payslip History</div></div>'
+      +'<div class="tw"><table class="dt"><thead><tr><th>Month</th><th>Gross</th><th>Deductions</th><th>Net Salary</th><th>Status</th><th></th></tr></thead><tbody>'
+      +list.map(function(r){
+        var net   = r.net||(  (r.basic||0)+(r.housing||0)+(r.transport||0)+(r.bonus||0) - (r.tax||0)-(r.deductions||0));
+        var gross = r.gross||((r.basic||0)+(r.housing||0)+(r.transport||0)+(r.bonus||0));
+        var ded   = (r.tax||0)+(r.deductions||0);
+        return '<tr>'
+          +'<td><span class="month-pill">'+r.month+'</span></td>'
+          +'<td style="font-size:13px;">'+fmt(gross)+'</td>'
+          +'<td style="font-size:13px;color:var(--red);">-'+fmt(ded)+'</td>'
+          +'<td style="font-weight:700;color:var(--accent);">'+fmt(net)+'</td>'
+          +'<td><span class="badge '+(r.paid?'b-green':'b-amber')+'">'+(r.paid?'Paid':'Pending')+'</span></td>'
+          +'<td><button class="bic" data-psid="'+r.id+'" title="View Payslip">🧾 View</button></td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+
+    document.querySelectorAll('[data-psid]').forEach(function(b){
+      b.addEventListener('click', function(){
+        /* For employee view, fetch the payroll from staffList-populated payrollList or re-fetch */
+        db.collection('payroll').doc(this.dataset.psid).get().then(function(doc){
+          if(doc.exists){
+            var tmp = payrollList;
+            payrollList = [Object.assign({id:doc.id},doc.data())].concat(payrollList.filter(function(p){return p.id!==doc.id;}));
+            viewPayslip(doc.id);
+            payrollList = tmp;
+          }
+        });
+      });
+    });
+  }).catch(function(e){ var el=document.getElementById('MY_PAY_LIST'); if(el)el.innerHTML='<div class="nd"><p style="color:var(--red);">Error: '+e.message+'</p></div>'; });
+}
+
+/* ── Currency formatter ── */
+function fmt(n){
+  return '₦'+Number(n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+/* ── Wire payroll modal save button on boot ── */
+document.addEventListener('DOMContentLoaded', function(){
+  var bp = document.getElementById('BTN_SAVE_PAY');
+  if(bp) bp.addEventListener('click', savePayroll);
+});
+
+</script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js">
+/* ================================================================
+   PAGE: PAYROLL MANAGEMENT (Admin/HR)
+================================================================ */
+function pgPayroll() {
+  var pg = document.getElementById('PAGE');
+  var curMonth = new Date().toISOString().slice(0,7);
+  pg.innerHTML = '<div class="pf">'
+    + '<div class="sh"><div class="st">Payroll Management</div>'
+    + '<button class="btn btn-primary" id="BTN_ADD_PAY">+ Assign Salary</button></div>'
+    + '<div class="card" style="margin-bottom:14px;"><div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">'
+    + '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Filter Month</div>'
+    + '<input type="month" id="PAY_MONTH_FILTER" value="'+curMonth+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    + '<div style="flex:1;min-width:140px;"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Search</div>'
+    + '<input type="text" id="PAY_SRCH" placeholder="Employee name or ID…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    + '</div></div>'
+    + '<div class="card"><div class="tw"><table class="dt">'
+    + '<thead><tr><th>Employee</th><th>Month</th><th>Basic</th><th>Allowances</th><th>Bonus</th><th>Deductions</th><th>Net Salary</th><th>Status</th><th></th></tr></thead>'
+    + '<tbody id="PAY_BODY"><tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted);">Loading…</td></tr></tbody>'
+    + '</table></div></div></div>';
+
+  document.getElementById('BTN_ADD_PAY').addEventListener('click', function(){ openPayModal(null); });
+  document.getElementById('PAY_MONTH_FILTER').addEventListener('change', loadPayroll);
+  document.getElementById('PAY_SRCH').addEventListener('input', loadPayroll);
+  loadPayroll();
+}
+
+var payrollList = [];
+
+function loadPayroll() {
+  var month = (document.getElementById('PAY_MONTH_FILTER')||{value:''}).value;
+  var q = (document.getElementById('PAY_SRCH')||{value:''}).value.toLowerCase();
+  var tb = document.getElementById('PAY_BODY'); if(!tb)return;
+  tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">Loading…</td></tr>';
+
+  var ref = db.collection('payroll');
+  if (month) ref = ref.where('month','==',month);
+  ref.limit(200).get().then(function(snap){
+    payrollList = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    if(q) payrollList = payrollList.filter(function(p){return (p.employeeName||'').toLowerCase().includes(q)||(p.employeeID||'').toLowerCase().includes(q);});
+    payrollList.sort(function(a,b){return (b.month||'').localeCompare(a.month||'');});
+    renderPayTable();
+  }).catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--red);">Error: '+e.message+'</td></tr>'; });
+}
+
+function renderPayTable() {
+  var tb = document.getElementById('PAY_BODY'); if(!tb)return;
+  if(!payrollList.length){tb.innerHTML='<tr><td colspan="9"><div class="nd"><div class="nd-i">💰</div><p>No payroll records found.</p></div></td></tr>';return;}
+  tb.innerHTML = payrollList.map(function(p){
+    var gross = (p.basic||0)+(p.housing||0)+(p.transport||0)+(p.bonus||0);
+    var ded   = (p.tax||0)+(p.deductions||0);
+    var net   = gross - ded;
+    return '<tr>'
+      +'<td><b>'+p.employeeName+'</b><div style="font-size:11px;color:var(--muted);">'+(p.employeeID||'')+'</div></td>'
+      +'<td><span class="month-pill">'+p.month+'</span></td>'
+      +'<td style="font-size:13px;">'+fmt(p.basic||0)+'</td>'
+      +'<td style="font-size:13px;">'+fmt((p.housing||0)+(p.transport||0))+'</td>'
+      +'<td style="font-size:13px;color:var(--green);">'+fmt(p.bonus||0)+'</td>'
+      +'<td style="font-size:13px;color:var(--red);">'+fmt(ded)+'</td>'
+      +'<td style="font-weight:700;color:var(--accent);">'+fmt(net)+'</td>'
+      +'<td><span class="badge '+(p.paid?'b-green':'b-amber')+'">'+(p.paid?'Paid':'Pending')+'</span></td>'
+      +'<td><div style="display:flex;gap:5px;">'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="slip" title="View Payslip">🧾</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="edit" title="Edit">✏️</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="mark" title="'+(p.paid?'Unmark Paid':'Mark Paid')+'">'+(p.paid?'↩':'✅')+'</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="del" title="Delete">🗑️</button>'
+      +'</div></td></tr>';
+  }).join('');
+
+  document.querySelectorAll('[data-act="slip"]').forEach(function(b){ b.addEventListener('click',function(){ viewPayslip(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="edit"]').forEach(function(b){ b.addEventListener('click',function(){ openPayModal(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="mark"]').forEach(function(b){ b.addEventListener('click',function(){ togglePaid(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="del"]').forEach(function(b){ b.addEventListener('click',function(){ confirmDel(this.dataset.pid,'payroll','Delete this payroll record?'); }); });
+}
+
+function openPayModal(id) {
+  document.getElementById('F_PAY_ID').value = id||'';
+  document.getElementById('F_PAY_UID').value = '';
+  document.getElementById('F_PAY_MONTH').value = new Date().toISOString().slice(0,7);
+  ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){ document.getElementById(i).value=''; });
+  document.getElementById('F_PAY_NOTE').value = '';
+  document.getElementById('PAY_PREVIEW').style.display = 'none';
+  document.getElementById('M_PAY_TITLE').textContent = id ? 'Edit Payroll' : 'Assign Salary';
+  document.getElementById('BTN_SAVE_PAY').textContent = id ? 'Update Payroll' : 'Save Payroll';
+
+  /* Populate employee dropdown */
+  var sel = document.getElementById('F_PAY_EMP');
+  sel.innerHTML = '<option value="">Select employee…</option>';
+  staffList.forEach(function(s){
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = fname(s) + ' (' + (s.employeeID||s.id.slice(0,6)) + ')';
+    opt.dataset.name = fname(s);
+    opt.dataset.eid  = s.employeeID||'';
+    opt.dataset.uid  = s.uid||s.id;
+    sel.appendChild(opt);
+  });
+
+  if (id) {
+    var rec = payrollList.find(function(p){return p.id===id;});
+    if (rec) {
+      sel.value           = rec.employeeUID||'';
+      document.getElementById('F_PAY_MONTH').value   = rec.month||'';
+      document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
+      document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
+      document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
+      document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
+      document.getElementById('F_PAY_TAX').value     = rec.tax||0;
+      document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
+      document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
+      updatePayPreview();
+    }
+  }
+
+  /* Live preview on input */
+  ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){
+    document.getElementById(i).addEventListener('input', updatePayPreview);
+  });
+
+  openM('M_PAY');
+}
+
+function updatePayPreview() {
+  var basic    = parseFloat(document.getElementById('F_PAY_BASIC').value)||0;
+  var housing  = parseFloat(document.getElementById('F_PAY_HOUSING').value)||0;
+  var trans    = parseFloat(document.getElementById('F_PAY_TRANS').value)||0;
+  var bonus    = parseFloat(document.getElementById('F_PAY_BONUS').value)||0;
+  var tax      = parseFloat(document.getElementById('F_PAY_TAX').value)||0;
+  var deduct   = parseFloat(document.getElementById('F_PAY_DEDUCT').value)||0;
+  var gross = basic+housing+trans+bonus;
+  var ded   = tax+deduct;
+  var net   = gross-ded;
+  var prev = document.getElementById('PAY_PREVIEW');
+  if(gross>0) {
+    prev.style.display = 'block';
+    document.getElementById('PP_GROSS').textContent = fmt(gross);
+    document.getElementById('PP_DED').textContent   = fmt(ded);
+    document.getElementById('PP_NET').textContent   = fmt(net);
+  }
+}
+
+function savePayroll() {
+  var id     = document.getElementById('F_PAY_ID').value;
+  var sel    = document.getElementById('F_PAY_EMP');
+  var empOpt = sel.options[sel.selectedIndex];
+  var empId  = sel.value;
+  if(!empId){ toast('Select an employee','error'); return; }
+  var month   = document.getElementById('F_PAY_MONTH').value;
+  if(!month){ toast('Select a month','error'); return; }
+  var basic    = parseFloat(document.getElementById('F_PAY_BASIC').value)||0;
+  var housing  = parseFloat(document.getElementById('F_PAY_HOUSING').value)||0;
+  var transport= parseFloat(document.getElementById('F_PAY_TRANS').value)||0;
+  var bonus    = parseFloat(document.getElementById('F_PAY_BONUS').value)||0;
+  var tax      = parseFloat(document.getElementById('F_PAY_TAX').value)||0;
+  var deductions=parseFloat(document.getElementById('F_PAY_DEDUCT').value)||0;
+  var notes   = document.getElementById('F_PAY_NOTE').value.trim();
+  var gross   = basic+housing+transport+bonus;
+  var net     = gross-tax-deductions;
+
+  /* Find staff record to get uid */
+  var staff   = staffList.find(function(s){return s.id===empId;});
+  var empName = empOpt.dataset.name || (staff?fname(staff):'Unknown');
+  var empEID  = empOpt.dataset.eid  || (staff?staff.employeeID||'':'');
+  var empUID  = staff ? (staff.uid||staff.id) : empId;
+
+  var data = {employeeUID:empUID, employeeID:empEID, employeeName:empName, month:month, basic:basic, housing:housing, transport:transport, bonus:bonus, tax:tax, deductions:deductions, notes:notes, gross:gross, net:net, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  var btn = document.getElementById('BTN_SAVE_PAY');
+  btn.disabled=true; btn.textContent='Saving…';
+
+  var p = id ? db.collection('payroll').doc(id).update(data) : db.collection('payroll').add(Object.assign({paid:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()},data));
+  p.then(function(){ toast(id?'Payroll updated':'Payroll saved','success'); closeM('M_PAY'); loadPayroll(); })
+   .catch(function(e){ toast('Error: '+e.message,'error'); })
+   .finally(function(){ btn.disabled=false; btn.textContent=id?'Update Payroll':'Save Payroll'; });
+}
+
+function togglePaid(id) {
+  var rec = payrollList.find(function(p){return p.id===id;}); if(!rec)return;
+  db.collection('payroll').doc(id).update({paid:!rec.paid}).then(function(){ loadPayroll(); toast(rec.paid?'Marked as pending':'Marked as paid','success'); }).catch(function(e){toast('Error: '+e.message,'error');});
+}
+
+function viewPayslip(id) {
+  var rec = payrollList.find(function(p){return p.id===id;}); if(!rec)return;
+  var gross = (rec.basic||0)+(rec.housing||0)+(rec.transport||0)+(rec.bonus||0);
+  var ded   = (rec.tax||0)+(rec.deductions||0);
+  var net   = gross-ded;
+  var body  = document.getElementById('PAYSLIP_BODY'); if(!body)return;
+  body.innerHTML = '<div class="pay-slip">'
+    +'<div class="pay-slip-header">'
+    +'<div class="pay-slip-logo">HRCore</div>'
+    +'<div class="pay-slip-title">Employee Payslip</div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:12px;font-size:13px;">'
+    +'<div><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Employee</div><b>'+rec.employeeName+'</b></div>'
+    +'<div style="text-align:right;"><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Employee ID</div><b>'+rec.employeeID+'</b></div>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px;">'
+    +'<div><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Pay Period</div><b>'+rec.month+'</b></div>'
+    +'<div style="text-align:right;"><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Status</div>'
+    +'<span class="badge '+(rec.paid?'b-green':'b-amber')+'">'+(rec.paid?'Paid':'Pending')+'</span></div>'
+    +'</div></div>'
+    +'<div class="pay-section-title">Earnings</div>'
+    +'<div class="pay-row"><span>Basic Salary</span><span class="pay-amt">'+fmt(rec.basic||0)+'</span></div>'
+    +(rec.housing?'<div class="pay-row"><span>Housing Allowance</span><span class="pay-amt">'+fmt(rec.housing)+'</span></div>':'')
+    +(rec.transport?'<div class="pay-row"><span>Transport Allowance</span><span class="pay-amt">'+fmt(rec.transport)+'</span></div>':'')
+    +(rec.bonus?'<div class="pay-row"><span>Bonus</span><span class="pay-amt" style="color:var(--green);">'+fmt(rec.bonus)+'</span></div>':'')
+    +'<div class="pay-row" style="font-weight:700;"><span>Gross Earnings</span><span class="pay-amt">'+fmt(gross)+'</span></div>'
+    +'<div class="pay-section-title">Deductions</div>'
+    +(rec.tax?'<div class="pay-row deduct"><span>Tax</span><span class="pay-amt">-'+fmt(rec.tax)+'</span></div>':'')
+    +(rec.deductions?'<div class="pay-row deduct"><span>Other Deductions</span><span class="pay-amt">-'+fmt(rec.deductions)+'</span></div>':'')
+    +(!rec.tax&&!rec.deductions?'<div class="pay-row"><span style="color:var(--muted);">No deductions</span><span class="pay-amt">'+fmt(0)+'</span></div>':'')
+    +'<div class="pay-row total"><span>NET SALARY</span><span class="pay-amt">'+fmt(net)+'</span></div>'
+    +(rec.notes?'<div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--muted);"><b>Notes:</b> '+rec.notes+'</div>':'')
+    +'<div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);text-align:center;">Generated by HRCore • '+new Date().toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})+'</div>'
+    +'</div>';
+  openM('M_PAYSLIP');
+}
+
+/* ================================================================
+   PAGE: PAYROLL DASHBOARD
+================================================================ */
+function pgPayrollDash() {
+  var pg = document.getElementById('PAGE');
+  var curMonth = new Date().toISOString().slice(0,7);
+  pg.innerHTML = '<div class="pf">'
+    +'<div class="sh"><div class="st">Payroll Dashboard</div>'
+    +'<input type="month" id="PDASH_MONTH" value="'+curMonth+'" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/>'
+    +'</div>'
+    +'<div id="PDASH_CONTENT"><div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div></div>'
+    +'</div>';
+  document.getElementById('PDASH_MONTH').addEventListener('change', function(){ loadPayrollDash(this.value); });
+  loadPayrollDash(curMonth);
+}
+
+function loadPayrollDash(month) {
+  var el = document.getElementById('PDASH_CONTENT'); if(!el)return;
+  el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div>';
+  db.collection('payroll').where('month','==',month).limit(200).get().then(function(snap){
+    var records = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    var totalPayroll = records.reduce(function(sum,r){return sum+(r.net||0);},0);
+    var totalGross   = records.reduce(function(sum,r){return sum+(r.gross||0);},0);
+    var totalDed     = records.reduce(function(sum,r){return sum+(r.tax||0)+(r.deductions||0);},0);
+    var totalBonus   = records.reduce(function(sum,r){return sum+(r.bonus||0);},0);
+    var paidCount    = records.filter(function(r){return r.paid;}).length;
+    var pendingCount = records.length - paidCount;
+
+    el.innerHTML = ''
+      /* Summary cards */
+      +'<div class="pay-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:20px;">'
+      +'<div class="salary-card"><div class="salary-card-label">Total Payroll</div><div class="salary-card-amount">'+fmt(totalPayroll)+'</div><div class="salary-card-meta">Net · '+month+'</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--accent);">'+records.length+'</div><div class="pay-stat-label">Total Records</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--green);">'+paidCount+'</div><div class="pay-stat-label">Paid</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--amber);">'+pendingCount+'</div><div class="pay-stat-label">Pending</div></div>'
+      +'</div>'
+      /* Breakdown card */
+      +'<div class="card cp" style="margin-bottom:16px;">'
+      +'<div class="ct" style="margin-bottom:16px;">Salary Breakdown — <span class="month-pill">'+month+'</span></div>'
+      +'<div class="pay-row"><span>Total Gross Earnings</span><span class="pay-amt">'+fmt(totalGross)+'</span></div>'
+      +'<div class="pay-row deduct"><span>Total Deductions</span><span class="pay-amt">-'+fmt(totalDed)+'</span></div>'
+      +'<div class="pay-row"><span>Total Bonuses Paid</span><span class="pay-amt" style="color:var(--green);">'+fmt(totalBonus)+'</span></div>'
+      +'<div class="pay-row total"><span>Total Net Payroll</span><span class="pay-amt">'+fmt(totalPayroll)+'</span></div>'
+      +'</div>'
+      /* Per-employee table */
+      +'<div class="card"><div class="ch"><div class="ct">Employee Salary Summary</div></div>'
+      +'<div class="tw"><table class="dt"><thead><tr><th>Employee</th><th>Gross</th><th>Deductions</th><th>Net Salary</th><th>Status</th></tr></thead><tbody>'
+      +(records.length?records.sort(function(a,b){return (b.net||0)-(a.net||0);}).map(function(r){
+        return '<tr>'
+          +'<td><b>'+r.employeeName+'</b><div style="font-size:11px;color:var(--muted);">'+(r.employeeID||'')+'</div></td>'
+          +'<td style="font-size:13px;">'+fmt(r.gross||0)+'</td>'
+          +'<td style="font-size:13px;color:var(--red);">-'+fmt((r.tax||0)+(r.deductions||0))+'</td>'
+          +'<td style="font-weight:700;color:var(--accent);">'+fmt(r.net||0)+'</td>'
+          +'<td><span class="badge '+(r.paid?'b-green':'b-amber')+'">'+(r.paid?'Paid':'Pending')+'</span></td>'
+          +'</tr>';
+      }).join(''):'<tr><td colspan="5"><div class="nd"><p>No payroll records for this month.</p></div></td></tr>')
+      +'</tbody></table></div></div>';
+  }).catch(function(e){ if(el)el.innerHTML='<div class="nd"><p style="color:var(--red);">Error: '+e.message+'</p></div>'; });
+}
+
+/* ================================================================
+   PAGE: MY PAYSLIPS (Employee)
+================================================================ */
+function pgMyPayslips() {
+  var pg = document.getElementById('PAGE');
+  pg.innerHTML = '<div class="pf">'
+    +'<div class="sh"><div class="st">My Payslips</div></div>'
+    +'<div id="MY_PAY_LIST"><div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div></div>'
+    +'</div>';
+
+  db.collection('payroll').where('employeeUID','==',CU.uid).limit(50).get().then(function(snap){
+    var list = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    list.sort(function(a,b){return (b.month||'').localeCompare(a.month||'');});
+    var el = document.getElementById('MY_PAY_LIST'); if(!el)return;
+    if(!list.length){el.innerHTML='<div class="nd"><div class="nd-i">🧾</div><p>No payslips found yet.</p></div>';return;}
+
+    /* Summary card for latest month */
+    var latest = list[0];
+    var lNet = latest.net||0;
+    var lGross = latest.gross||0;
+    var lDed = (latest.tax||0)+(latest.deductions||0);
+
+    el.innerHTML = '<div class="salary-card" style="margin-bottom:20px;">'
+      +'<div class="salary-card-label">Latest Net Salary</div>'
+      +'<div class="salary-card-amount">'+fmt(lNet)+'</div>'
+      +'<div class="salary-card-meta">'+latest.month+' · '+(latest.paid?'✅ Paid':'⏳ Pending')+'</div>'
+      +'</div>'
+      +'<div class="card"><div class="ch"><div class="ct">Payslip History</div></div>'
+      +'<div class="tw"><table class="dt"><thead><tr><th>Month</th><th>Gross</th><th>Deductions</th><th>Net Salary</th><th>Status</th><th></th></tr></thead><tbody>'
+      +list.map(function(r){
+        var net   = r.net||(  (r.basic||0)+(r.housing||0)+(r.transport||0)+(r.bonus||0) - (r.tax||0)-(r.deductions||0));
+        var gross = r.gross||((r.basic||0)+(r.housing||0)+(r.transport||0)+(r.bonus||0));
+        var ded   = (r.tax||0)+(r.deductions||0);
+        return '<tr>'
+          +'<td><span class="month-pill">'+r.month+'</span></td>'
+          +'<td style="font-size:13px;">'+fmt(gross)+'</td>'
+          +'<td style="font-size:13px;color:var(--red);">-'+fmt(ded)+'</td>'
+          +'<td style="font-weight:700;color:var(--accent);">'+fmt(net)+'</td>'
+          +'<td><span class="badge '+(r.paid?'b-green':'b-amber')+'">'+(r.paid?'Paid':'Pending')+'</span></td>'
+          +'<td><button class="bic" data-psid="'+r.id+'" title="View Payslip">🧾 View</button></td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+
+    document.querySelectorAll('[data-psid]').forEach(function(b){
+      b.addEventListener('click', function(){
+        /* For employee view, fetch the payroll from staffList-populated payrollList or re-fetch */
+        db.collection('payroll').doc(this.dataset.psid).get().then(function(doc){
+          if(doc.exists){
+            var tmp = payrollList;
+            payrollList = [Object.assign({id:doc.id},doc.data())].concat(payrollList.filter(function(p){return p.id!==doc.id;}));
+            viewPayslip(doc.id);
+            payrollList = tmp;
+          }
+        });
+      });
+    });
+  }).catch(function(e){ var el=document.getElementById('MY_PAY_LIST'); if(el)el.innerHTML='<div class="nd"><p style="color:var(--red);">Error: '+e.message+'</p></div>'; });
+}
+
+/* ── Currency formatter ── */
+function fmt(n){
+  return '₦'+Number(n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+/* ── Wire payroll modal save button on boot ── */
+document.addEventListener('DOMContentLoaded', function(){
+  var bp = document.getElementById('BTN_SAVE_PAY');
+  if(bp) bp.addEventListener('click', savePayroll);
+});
+
+</script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js">
+/* ================================================================
+   PAGE: PAYROLL MANAGEMENT (Admin/HR)
+================================================================ */
+function pgPayroll() {
+  var pg = document.getElementById('PAGE');
+  var curMonth = new Date().toISOString().slice(0,7);
+  pg.innerHTML = '<div class="pf">'
+    + '<div class="sh"><div class="st">Payroll Management</div>'
+    + '<button class="btn btn-primary" id="BTN_ADD_PAY">+ Assign Salary</button></div>'
+    + '<div class="card" style="margin-bottom:14px;"><div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">'
+    + '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Filter Month</div>'
+    + '<input type="month" id="PAY_MONTH_FILTER" value="'+curMonth+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    + '<div style="flex:1;min-width:140px;"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Search</div>'
+    + '<input type="text" id="PAY_SRCH" placeholder="Employee name or ID…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    + '</div></div>'
+    + '<div class="card"><div class="tw"><table class="dt">'
+    + '<thead><tr><th>Employee</th><th>Month</th><th>Basic</th><th>Allowances</th><th>Bonus</th><th>Deductions</th><th>Net Salary</th><th>Status</th><th></th></tr></thead>'
+    + '<tbody id="PAY_BODY"><tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted);">Loading…</td></tr></tbody>'
+    + '</table></div></div></div>';
+
+  document.getElementById('BTN_ADD_PAY').addEventListener('click', function(){ openPayModal(null); });
+  document.getElementById('PAY_MONTH_FILTER').addEventListener('change', loadPayroll);
+  document.getElementById('PAY_SRCH').addEventListener('input', loadPayroll);
+  loadPayroll();
+}
+
+var payrollList = [];
+
+function loadPayroll() {
+  var month = (document.getElementById('PAY_MONTH_FILTER')||{value:''}).value;
+  var q = (document.getElementById('PAY_SRCH')||{value:''}).value.toLowerCase();
+  var tb = document.getElementById('PAY_BODY'); if(!tb)return;
+  tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">Loading…</td></tr>';
+
+  var ref = db.collection('payroll');
+  if (month) ref = ref.where('month','==',month);
+  ref.limit(200).get().then(function(snap){
+    payrollList = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    if(q) payrollList = payrollList.filter(function(p){return (p.employeeName||'').toLowerCase().includes(q)||(p.employeeID||'').toLowerCase().includes(q);});
+    payrollList.sort(function(a,b){return (b.month||'').localeCompare(a.month||'');});
+    renderPayTable();
+  }).catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--red);">Error: '+e.message+'</td></tr>'; });
+}
+
+function renderPayTable() {
+  var tb = document.getElementById('PAY_BODY'); if(!tb)return;
+  if(!payrollList.length){tb.innerHTML='<tr><td colspan="9"><div class="nd"><div class="nd-i">💰</div><p>No payroll records found.</p></div></td></tr>';return;}
+  tb.innerHTML = payrollList.map(function(p){
+    var gross = (p.basic||0)+(p.housing||0)+(p.transport||0)+(p.bonus||0);
+    var ded   = (p.tax||0)+(p.deductions||0);
+    var net   = gross - ded;
+    return '<tr>'
+      +'<td><b>'+p.employeeName+'</b><div style="font-size:11px;color:var(--muted);">'+(p.employeeID||'')+'</div></td>'
+      +'<td><span class="month-pill">'+p.month+'</span></td>'
+      +'<td style="font-size:13px;">'+fmt(p.basic||0)+'</td>'
+      +'<td style="font-size:13px;">'+fmt((p.housing||0)+(p.transport||0))+'</td>'
+      +'<td style="font-size:13px;color:var(--green);">'+fmt(p.bonus||0)+'</td>'
+      +'<td style="font-size:13px;color:var(--red);">'+fmt(ded)+'</td>'
+      +'<td style="font-weight:700;color:var(--accent);">'+fmt(net)+'</td>'
+      +'<td><span class="badge '+(p.paid?'b-green':'b-amber')+'">'+(p.paid?'Paid':'Pending')+'</span></td>'
+      +'<td><div style="display:flex;gap:5px;">'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="slip" title="View Payslip">🧾</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="edit" title="Edit">✏️</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="mark" title="'+(p.paid?'Unmark Paid':'Mark Paid')+'">'+(p.paid?'↩':'✅')+'</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="del" title="Delete">🗑️</button>'
+      +'</div></td></tr>';
+  }).join('');
+
+  document.querySelectorAll('[data-act="slip"]').forEach(function(b){ b.addEventListener('click',function(){ viewPayslip(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="edit"]').forEach(function(b){ b.addEventListener('click',function(){ openPayModal(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="mark"]').forEach(function(b){ b.addEventListener('click',function(){ togglePaid(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="del"]').forEach(function(b){ b.addEventListener('click',function(){ confirmDel(this.dataset.pid,'payroll','Delete this payroll record?'); }); });
+}
+
+function openPayModal(id) {
+  document.getElementById('F_PAY_ID').value = id||'';
+  document.getElementById('F_PAY_UID').value = '';
+  document.getElementById('F_PAY_MONTH').value = new Date().toISOString().slice(0,7);
+  ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){ document.getElementById(i).value=''; });
+  document.getElementById('F_PAY_NOTE').value = '';
+  document.getElementById('PAY_PREVIEW').style.display = 'none';
+  document.getElementById('M_PAY_TITLE').textContent = id ? 'Edit Payroll' : 'Assign Salary';
+  document.getElementById('BTN_SAVE_PAY').textContent = id ? 'Update Payroll' : 'Save Payroll';
+
+  /* Populate employee dropdown */
+  var sel = document.getElementById('F_PAY_EMP');
+  sel.innerHTML = '<option value="">Select employee…</option>';
+  staffList.forEach(function(s){
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = fname(s) + ' (' + (s.employeeID||s.id.slice(0,6)) + ')';
+    opt.dataset.name = fname(s);
+    opt.dataset.eid  = s.employeeID||'';
+    opt.dataset.uid  = s.uid||s.id;
+    sel.appendChild(opt);
+  });
+
+  if (id) {
+    var rec = payrollList.find(function(p){return p.id===id;});
+    if (rec) {
+      sel.value           = rec.employeeUID||'';
+      document.getElementById('F_PAY_MONTH').value   = rec.month||'';
+      document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
+      document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
+      document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
+      document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
+      document.getElementById('F_PAY_TAX').value     = rec.tax||0;
+      document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
+      document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
+      updatePayPreview();
+    }
+  }
+
+  /* Live preview on input */
+  ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){
+    document.getElementById(i).addEventListener('input', updatePayPreview);
+  });
+
+  openM('M_PAY');
+}
+
+function updatePayPreview() {
+  var basic    = parseFloat(document.getElementById('F_PAY_BASIC').value)||0;
+  var housing  = parseFloat(document.getElementById('F_PAY_HOUSING').value)||0;
+  var trans    = parseFloat(document.getElementById('F_PAY_TRANS').value)||0;
+  var bonus    = parseFloat(document.getElementById('F_PAY_BONUS').value)||0;
+  var tax      = parseFloat(document.getElementById('F_PAY_TAX').value)||0;
+  var deduct   = parseFloat(document.getElementById('F_PAY_DEDUCT').value)||0;
+  var gross = basic+housing+trans+bonus;
+  var ded   = tax+deduct;
+  var net   = gross-ded;
+  var prev = document.getElementById('PAY_PREVIEW');
+  if(gross>0) {
+    prev.style.display = 'block';
+    document.getElementById('PP_GROSS').textContent = fmt(gross);
+    document.getElementById('PP_DED').textContent   = fmt(ded);
+    document.getElementById('PP_NET').textContent   = fmt(net);
+  }
+}
+
+function savePayroll() {
+  var id     = document.getElementById('F_PAY_ID').value;
+  var sel    = document.getElementById('F_PAY_EMP');
+  var empOpt = sel.options[sel.selectedIndex];
+  var empId  = sel.value;
+  if(!empId){ toast('Select an employee','error'); return; }
+  var month   = document.getElementById('F_PAY_MONTH').value;
+  if(!month){ toast('Select a month','error'); return; }
+  var basic    = parseFloat(document.getElementById('F_PAY_BASIC').value)||0;
+  var housing  = parseFloat(document.getElementById('F_PAY_HOUSING').value)||0;
+  var transport= parseFloat(document.getElementById('F_PAY_TRANS').value)||0;
+  var bonus    = parseFloat(document.getElementById('F_PAY_BONUS').value)||0;
+  var tax      = parseFloat(document.getElementById('F_PAY_TAX').value)||0;
+  var deductions=parseFloat(document.getElementById('F_PAY_DEDUCT').value)||0;
+  var notes   = document.getElementById('F_PAY_NOTE').value.trim();
+  var gross   = basic+housing+transport+bonus;
+  var net     = gross-tax-deductions;
+
+  /* Find staff record to get uid */
+  var staff   = staffList.find(function(s){return s.id===empId;});
+  var empName = empOpt.dataset.name || (staff?fname(staff):'Unknown');
+  var empEID  = empOpt.dataset.eid  || (staff?staff.employeeID||'':'');
+  var empUID  = staff ? (staff.uid||staff.id) : empId;
+
+  var data = {employeeUID:empUID, employeeID:empEID, employeeName:empName, month:month, basic:basic, housing:housing, transport:transport, bonus:bonus, tax:tax, deductions:deductions, notes:notes, gross:gross, net:net, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  var btn = document.getElementById('BTN_SAVE_PAY');
+  btn.disabled=true; btn.textContent='Saving…';
+
+  var p = id ? db.collection('payroll').doc(id).update(data) : db.collection('payroll').add(Object.assign({paid:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()},data));
+  p.then(function(){ toast(id?'Payroll updated':'Payroll saved','success'); closeM('M_PAY'); loadPayroll(); })
+   .catch(function(e){ toast('Error: '+e.message,'error'); })
+   .finally(function(){ btn.disabled=false; btn.textContent=id?'Update Payroll':'Save Payroll'; });
+}
+
+function togglePaid(id) {
+  var rec = payrollList.find(function(p){return p.id===id;}); if(!rec)return;
+  db.collection('payroll').doc(id).update({paid:!rec.paid}).then(function(){ loadPayroll(); toast(rec.paid?'Marked as pending':'Marked as paid','success'); }).catch(function(e){toast('Error: '+e.message,'error');});
+}
+
+function viewPayslip(id) {
+  var rec = payrollList.find(function(p){return p.id===id;}); if(!rec)return;
+  var gross = (rec.basic||0)+(rec.housing||0)+(rec.transport||0)+(rec.bonus||0);
+  var ded   = (rec.tax||0)+(rec.deductions||0);
+  var net   = gross-ded;
+  var body  = document.getElementById('PAYSLIP_BODY'); if(!body)return;
+  body.innerHTML = '<div class="pay-slip">'
+    +'<div class="pay-slip-header">'
+    +'<div class="pay-slip-logo">HRCore</div>'
+    +'<div class="pay-slip-title">Employee Payslip</div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:12px;font-size:13px;">'
+    +'<div><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Employee</div><b>'+rec.employeeName+'</b></div>'
+    +'<div style="text-align:right;"><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Employee ID</div><b>'+rec.employeeID+'</b></div>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px;">'
+    +'<div><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Pay Period</div><b>'+rec.month+'</b></div>'
+    +'<div style="text-align:right;"><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Status</div>'
+    +'<span class="badge '+(rec.paid?'b-green':'b-amber')+'">'+(rec.paid?'Paid':'Pending')+'</span></div>'
+    +'</div></div>'
+    +'<div class="pay-section-title">Earnings</div>'
+    +'<div class="pay-row"><span>Basic Salary</span><span class="pay-amt">'+fmt(rec.basic||0)+'</span></div>'
+    +(rec.housing?'<div class="pay-row"><span>Housing Allowance</span><span class="pay-amt">'+fmt(rec.housing)+'</span></div>':'')
+    +(rec.transport?'<div class="pay-row"><span>Transport Allowance</span><span class="pay-amt">'+fmt(rec.transport)+'</span></div>':'')
+    +(rec.bonus?'<div class="pay-row"><span>Bonus</span><span class="pay-amt" style="color:var(--green);">'+fmt(rec.bonus)+'</span></div>':'')
+    +'<div class="pay-row" style="font-weight:700;"><span>Gross Earnings</span><span class="pay-amt">'+fmt(gross)+'</span></div>'
+    +'<div class="pay-section-title">Deductions</div>'
+    +(rec.tax?'<div class="pay-row deduct"><span>Tax</span><span class="pay-amt">-'+fmt(rec.tax)+'</span></div>':'')
+    +(rec.deductions?'<div class="pay-row deduct"><span>Other Deductions</span><span class="pay-amt">-'+fmt(rec.deductions)+'</span></div>':'')
+    +(!rec.tax&&!rec.deductions?'<div class="pay-row"><span style="color:var(--muted);">No deductions</span><span class="pay-amt">'+fmt(0)+'</span></div>':'')
+    +'<div class="pay-row total"><span>NET SALARY</span><span class="pay-amt">'+fmt(net)+'</span></div>'
+    +(rec.notes?'<div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--muted);"><b>Notes:</b> '+rec.notes+'</div>':'')
+    +'<div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);text-align:center;">Generated by HRCore • '+new Date().toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})+'</div>'
+    +'</div>';
+  openM('M_PAYSLIP');
+}
+
+/* ================================================================
+   PAGE: PAYROLL DASHBOARD
+================================================================ */
+function pgPayrollDash() {
+  var pg = document.getElementById('PAGE');
+  var curMonth = new Date().toISOString().slice(0,7);
+  pg.innerHTML = '<div class="pf">'
+    +'<div class="sh"><div class="st">Payroll Dashboard</div>'
+    +'<input type="month" id="PDASH_MONTH" value="'+curMonth+'" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/>'
+    +'</div>'
+    +'<div id="PDASH_CONTENT"><div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div></div>'
+    +'</div>';
+  document.getElementById('PDASH_MONTH').addEventListener('change', function(){ loadPayrollDash(this.value); });
+  loadPayrollDash(curMonth);
+}
+
+function loadPayrollDash(month) {
+  var el = document.getElementById('PDASH_CONTENT'); if(!el)return;
+  el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div>';
+  db.collection('payroll').where('month','==',month).limit(200).get().then(function(snap){
+    var records = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    var totalPayroll = records.reduce(function(sum,r){return sum+(r.net||0);},0);
+    var totalGross   = records.reduce(function(sum,r){return sum+(r.gross||0);},0);
+    var totalDed     = records.reduce(function(sum,r){return sum+(r.tax||0)+(r.deductions||0);},0);
+    var totalBonus   = records.reduce(function(sum,r){return sum+(r.bonus||0);},0);
+    var paidCount    = records.filter(function(r){return r.paid;}).length;
+    var pendingCount = records.length - paidCount;
+
+    el.innerHTML = ''
+      /* Summary cards */
+      +'<div class="pay-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:20px;">'
+      +'<div class="salary-card"><div class="salary-card-label">Total Payroll</div><div class="salary-card-amount">'+fmt(totalPayroll)+'</div><div class="salary-card-meta">Net · '+month+'</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--accent);">'+records.length+'</div><div class="pay-stat-label">Total Records</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--green);">'+paidCount+'</div><div class="pay-stat-label">Paid</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--amber);">'+pendingCount+'</div><div class="pay-stat-label">Pending</div></div>'
+      +'</div>'
+      /* Breakdown card */
+      +'<div class="card cp" style="margin-bottom:16px;">'
+      +'<div class="ct" style="margin-bottom:16px;">Salary Breakdown — <span class="month-pill">'+month+'</span></div>'
+      +'<div class="pay-row"><span>Total Gross Earnings</span><span class="pay-amt">'+fmt(totalGross)+'</span></div>'
+      +'<div class="pay-row deduct"><span>Total Deductions</span><span class="pay-amt">-'+fmt(totalDed)+'</span></div>'
+      +'<div class="pay-row"><span>Total Bonuses Paid</span><span class="pay-amt" style="color:var(--green);">'+fmt(totalBonus)+'</span></div>'
+      +'<div class="pay-row total"><span>Total Net Payroll</span><span class="pay-amt">'+fmt(totalPayroll)+'</span></div>'
+      +'</div>'
+      /* Per-employee table */
+      +'<div class="card"><div class="ch"><div class="ct">Employee Salary Summary</div></div>'
+      +'<div class="tw"><table class="dt"><thead><tr><th>Employee</th><th>Gross</th><th>Deductions</th><th>Net Salary</th><th>Status</th></tr></thead><tbody>'
+      +(records.length?records.sort(function(a,b){return (b.net||0)-(a.net||0);}).map(function(r){
+        return '<tr>'
+          +'<td><b>'+r.employeeName+'</b><div style="font-size:11px;color:var(--muted);">'+(r.employeeID||'')+'</div></td>'
+          +'<td style="font-size:13px;">'+fmt(r.gross||0)+'</td>'
+          +'<td style="font-size:13px;color:var(--red);">-'+fmt((r.tax||0)+(r.deductions||0))+'</td>'
+          +'<td style="font-weight:700;color:var(--accent);">'+fmt(r.net||0)+'</td>'
+          +'<td><span class="badge '+(r.paid?'b-green':'b-amber')+'">'+(r.paid?'Paid':'Pending')+'</span></td>'
+          +'</tr>';
+      }).join(''):'<tr><td colspan="5"><div class="nd"><p>No payroll records for this month.</p></div></td></tr>')
+      +'</tbody></table></div></div>';
+  }).catch(function(e){ if(el)el.innerHTML='<div class="nd"><p style="color:var(--red);">Error: '+e.message+'</p></div>'; });
+}
+
+/* ================================================================
+   PAGE: MY PAYSLIPS (Employee)
+================================================================ */
+function pgMyPayslips() {
+  var pg = document.getElementById('PAGE');
+  pg.innerHTML = '<div class="pf">'
+    +'<div class="sh"><div class="st">My Payslips</div></div>'
+    +'<div id="MY_PAY_LIST"><div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div></div>'
+    +'</div>';
+
+  db.collection('payroll').where('employeeUID','==',CU.uid).limit(50).get().then(function(snap){
+    var list = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    list.sort(function(a,b){return (b.month||'').localeCompare(a.month||'');});
+    var el = document.getElementById('MY_PAY_LIST'); if(!el)return;
+    if(!list.length){el.innerHTML='<div class="nd"><div class="nd-i">🧾</div><p>No payslips found yet.</p></div>';return;}
+
+    /* Summary card for latest month */
+    var latest = list[0];
+    var lNet = latest.net||0;
+    var lGross = latest.gross||0;
+    var lDed = (latest.tax||0)+(latest.deductions||0);
+
+    el.innerHTML = '<div class="salary-card" style="margin-bottom:20px;">'
+      +'<div class="salary-card-label">Latest Net Salary</div>'
+      +'<div class="salary-card-amount">'+fmt(lNet)+'</div>'
+      +'<div class="salary-card-meta">'+latest.month+' · '+(latest.paid?'✅ Paid':'⏳ Pending')+'</div>'
+      +'</div>'
+      +'<div class="card"><div class="ch"><div class="ct">Payslip History</div></div>'
+      +'<div class="tw"><table class="dt"><thead><tr><th>Month</th><th>Gross</th><th>Deductions</th><th>Net Salary</th><th>Status</th><th></th></tr></thead><tbody>'
+      +list.map(function(r){
+        var net   = r.net||(  (r.basic||0)+(r.housing||0)+(r.transport||0)+(r.bonus||0) - (r.tax||0)-(r.deductions||0));
+        var gross = r.gross||((r.basic||0)+(r.housing||0)+(r.transport||0)+(r.bonus||0));
+        var ded   = (r.tax||0)+(r.deductions||0);
+        return '<tr>'
+          +'<td><span class="month-pill">'+r.month+'</span></td>'
+          +'<td style="font-size:13px;">'+fmt(gross)+'</td>'
+          +'<td style="font-size:13px;color:var(--red);">-'+fmt(ded)+'</td>'
+          +'<td style="font-weight:700;color:var(--accent);">'+fmt(net)+'</td>'
+          +'<td><span class="badge '+(r.paid?'b-green':'b-amber')+'">'+(r.paid?'Paid':'Pending')+'</span></td>'
+          +'<td><button class="bic" data-psid="'+r.id+'" title="View Payslip">🧾 View</button></td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+
+    document.querySelectorAll('[data-psid]').forEach(function(b){
+      b.addEventListener('click', function(){
+        /* For employee view, fetch the payroll from staffList-populated payrollList or re-fetch */
+        db.collection('payroll').doc(this.dataset.psid).get().then(function(doc){
+          if(doc.exists){
+            var tmp = payrollList;
+            payrollList = [Object.assign({id:doc.id},doc.data())].concat(payrollList.filter(function(p){return p.id!==doc.id;}));
+            viewPayslip(doc.id);
+            payrollList = tmp;
+          }
+        });
+      });
+    });
+  }).catch(function(e){ var el=document.getElementById('MY_PAY_LIST'); if(el)el.innerHTML='<div class="nd"><p style="color:var(--red);">Error: '+e.message+'</p></div>'; });
+}
+
+/* ── Currency formatter ── */
+function fmt(n){
+  return '₦'+Number(n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+/* ── Wire payroll modal save button on boot ── */
+document.addEventListener('DOMContentLoaded', function(){
+  var bp = document.getElementById('BTN_SAVE_PAY');
+  if(bp) bp.addEventListener('click', savePayroll);
+});
+
+</script>
 <style>
 :root{
   --bg:#f0f2f5;--card:#fff;--sidebar:#111827;
@@ -215,6 +1256,35 @@ table.dt tbody tr:hover td{background:#fafbfc;}
 @media(max-width:480px){#TB_DATETIME{display:none!important;}}
 /* Greeting bar */
 #GREET_BAR{border-bottom:1px solid rgba(0,0,0,.08);}
+
+/* ── Payroll specific ── */
+.pay-slip{background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:28px;max-width:600px;margin:0 auto;}
+.pay-slip-header{border-bottom:2px solid var(--accent);padding-bottom:16px;margin-bottom:20px;}
+.pay-slip-logo{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--accent);}
+.pay-slip-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+.pay-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;}
+.pay-row:last-child{border-bottom:none;}
+.pay-row.total{font-weight:700;font-size:15px;border-top:2px solid var(--border);border-bottom:none;margin-top:4px;padding-top:12px;}
+.pay-row.total .pay-amt{color:var(--green);}
+.pay-row.deduct .pay-amt{color:var(--red);}
+.pay-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:16px 0 6px;}
+.pay-amt{font-weight:600;font-family:monospace;}
+.salary-card{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border-radius:var(--r);padding:22px;position:relative;overflow:hidden;}
+.salary-card::before{content:'';position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.07);}
+.salary-card-label{font-size:11px;opacity:.75;text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;}
+.salary-card-amount{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;letter-spacing:-1px;}
+.salary-card-meta{font-size:12px;opacity:.7;margin-top:4px;}
+.pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;}
+@media(max-width:560px){.pay-grid{grid-template-columns:1fr;}}
+.pay-stat{background:#fff;border:1.5px solid var(--border);border-radius:var(--r);padding:18px;text-align:center;box-shadow:var(--sh);}
+.pay-stat-num{font-size:26px;font-weight:800;}
+.pay-stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:4px;}
+.month-pill{display:inline-block;padding:4px 12px;background:var(--al);color:var(--accent);border-radius:50px;font-size:12px;font-weight:700;}
+@media print{
+  #AUTH,#APP .sb,#APP .topbar,#GREET_BAR,#TC,.btn,.bic,.ch,#FOOTER_USER{display:none!important;}
+  .pay-slip{border:none;box-shadow:none;padding:0;}
+  body{background:#fff;}
+}
 /* Scrollbar */
 ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px;}
 /* Page fade */
@@ -723,19 +1793,20 @@ var NAVS = {
     {s:'Overview'},{p:'dashboard',i:'📊',l:'HR Dashboard'},
     {s:'Staff'},{p:'employees',i:'👥',l:'Employees'},{p:'attendance',i:'⏱',l:'Attendance'},
     {s:'HR'},{p:'leaves-admin',i:'📋',l:'Leave Requests',b:'lp'},{p:'reports',i:'📈',l:'Reports'},
-    {s:'My Work'},{p:'my-attendance',i:'🙋',l:'My Attendance'},{p:'my-leaves',i:'🌴',l:'My Leaves'},
+    {s:'Payroll'},{p:'payroll',i:'💰',l:'Payroll Management'},{p:'payroll-dashboard',i:'📉',l:'Payroll Dashboard'},
+    {s:'My Work'},{p:'my-attendance',i:'🙋',l:'My Attendance'},{p:'my-leaves',i:'🌴',l:'My Leaves'},{p:'my-payslips',i:'🧾',l:'My Payslips'},
     {s:'System'},{p:'settings',i:'⚙️',l:'Settings & PIN'},
   ],
   manager:[
     {s:'Overview'},{p:'dashboard',i:'📊',l:'Dashboard'},
     {s:'Team'},{p:'attendance',i:'⏱',l:'Attendance'},{p:'leaves-admin',i:'📋',l:'Leaves',b:'lp'},{p:'reports',i:'📈',l:'Reports'},
-    {s:'My Work'},{p:'my-attendance',i:'🙋',l:'My Attendance'},{p:'my-leaves',i:'🌴',l:'My Leaves'},
+    {s:'My Work'},{p:'my-attendance',i:'🙋',l:'My Attendance'},{p:'my-leaves',i:'🌴',l:'My Leaves'},{p:'my-payslips',i:'🧾',l:'My Payslips'},
   ],
   employee:[
-    {s:'My Work'},{p:'my-attendance',i:'⏱',l:'My Attendance'},{p:'my-leaves',i:'🌴',l:'My Leaves'},
+    {s:'My Work'},{p:'my-attendance',i:'⏱',l:'My Attendance'},{p:'my-leaves',i:'🌴',l:'My Leaves'},{p:'my-payslips',i:'🧾',l:'My Payslips'},
   ]
 };
-var PT={'dashboard':'HR Dashboard','employees':'Employees','attendance':'Attendance','leaves-admin':'Leave Requests','reports':'Reports','my-attendance':'My Attendance','my-leaves':'My Leaves','settings':'Settings & PIN'};
+var PT={'dashboard':'HR Dashboard','employees':'Employees','attendance':'Attendance','leaves-admin':'Leave Requests','reports':'Reports','my-attendance':'My Attendance','my-leaves':'My Leaves','settings':'Settings & PIN','payroll':'Payroll Management','payroll-dashboard':'Payroll Dashboard','my-payslips':'My Payslips'};
 
 function buildSidebar() {
   var items=NAVS[CR]||NAVS.employee, html='';
@@ -793,7 +1864,7 @@ function go(page) {
   closeSB();
   var pg=document.getElementById('PAGE');
   pg.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted);">Loading…</div>';
-  var map={'dashboard':pgDash,'employees':pgEmp,'attendance':pgAtt,'leaves-admin':pgLeavesAdmin,'reports':pgReports,'my-attendance':pgMyAtt,'my-leaves':pgMyLeaves,'settings':pgSettings};
+  var map={'dashboard':pgDash,'employees':pgEmp,'attendance':pgAtt,'leaves-admin':pgLeavesAdmin,'reports':pgReports,'my-attendance':pgMyAtt,'my-leaves':pgMyLeaves,'settings':pgSettings,'payroll':pgPayroll,'payroll-dashboard':pgPayrollDash,'my-payslips':pgMyPayslips};
   if(map[page]) map[page](); else pg.innerHTML='<div class="nd"><p>Not found</p></div>';
 }
 
@@ -1423,6 +2494,402 @@ function dur(a,b){try{var ms=new Date(b)-new Date(a);return Math.floor(ms/360000
 function lei(t){return{annual:'🌴',sick:'🤒',emergency:'🚨'}[t]||'📋';}
 function avc(s){return['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444','#0ea5e9'][((s||'A').charCodeAt(0))%6];}
 function ago(d){var s=Math.floor((Date.now()-d)/1000);if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+
+/* ================================================================
+   PAGE: PAYROLL MANAGEMENT (Admin/HR)
+================================================================ */
+function pgPayroll() {
+  var pg = document.getElementById('PAGE');
+  var curMonth = new Date().toISOString().slice(0,7);
+  pg.innerHTML = '<div class="pf">'
+    + '<div class="sh"><div class="st">Payroll Management</div>'
+    + '<button class="btn btn-primary" id="BTN_ADD_PAY">+ Assign Salary</button></div>'
+    + '<div class="card" style="margin-bottom:14px;"><div style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">'
+    + '<div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Filter Month</div>'
+    + '<input type="month" id="PAY_MONTH_FILTER" value="'+curMonth+'" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    + '<div style="flex:1;min-width:140px;"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;">Search</div>'
+    + '<input type="text" id="PAY_SRCH" placeholder="Employee name or ID…" style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/></div>'
+    + '</div></div>'
+    + '<div class="card"><div class="tw"><table class="dt">'
+    + '<thead><tr><th>Employee</th><th>Month</th><th>Basic</th><th>Allowances</th><th>Bonus</th><th>Deductions</th><th>Net Salary</th><th>Status</th><th></th></tr></thead>'
+    + '<tbody id="PAY_BODY"><tr><td colspan="9" style="text-align:center;padding:28px;color:var(--muted);">Loading…</td></tr></tbody>'
+    + '</table></div></div></div>';
+
+  document.getElementById('BTN_ADD_PAY').addEventListener('click', function(){ openPayModal(null); });
+  document.getElementById('PAY_MONTH_FILTER').addEventListener('change', loadPayroll);
+  document.getElementById('PAY_SRCH').addEventListener('input', loadPayroll);
+  loadPayroll();
+}
+
+var payrollList = [];
+
+function loadPayroll() {
+  var month = (document.getElementById('PAY_MONTH_FILTER')||{value:''}).value;
+  var q = (document.getElementById('PAY_SRCH')||{value:''}).value.toLowerCase();
+  var tb = document.getElementById('PAY_BODY'); if(!tb)return;
+  tb.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted);">Loading…</td></tr>';
+
+  var ref = db.collection('payroll');
+  if (month) ref = ref.where('month','==',month);
+  ref.limit(200).get().then(function(snap){
+    payrollList = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    if(q) payrollList = payrollList.filter(function(p){return (p.employeeName||'').toLowerCase().includes(q)||(p.employeeID||'').toLowerCase().includes(q);});
+    payrollList.sort(function(a,b){return (b.month||'').localeCompare(a.month||'');});
+    renderPayTable();
+  }).catch(function(e){ if(tb) tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--red);">Error: '+e.message+'</td></tr>'; });
+}
+
+function renderPayTable() {
+  var tb = document.getElementById('PAY_BODY'); if(!tb)return;
+  if(!payrollList.length){tb.innerHTML='<tr><td colspan="9"><div class="nd"><div class="nd-i">💰</div><p>No payroll records found.</p></div></td></tr>';return;}
+  tb.innerHTML = payrollList.map(function(p){
+    var gross = (p.basic||0)+(p.housing||0)+(p.transport||0)+(p.bonus||0);
+    var ded   = (p.tax||0)+(p.deductions||0);
+    var net   = gross - ded;
+    return '<tr>'
+      +'<td><b>'+p.employeeName+'</b><div style="font-size:11px;color:var(--muted);">'+(p.employeeID||'')+'</div></td>'
+      +'<td><span class="month-pill">'+p.month+'</span></td>'
+      +'<td style="font-size:13px;">'+fmt(p.basic||0)+'</td>'
+      +'<td style="font-size:13px;">'+fmt((p.housing||0)+(p.transport||0))+'</td>'
+      +'<td style="font-size:13px;color:var(--green);">'+fmt(p.bonus||0)+'</td>'
+      +'<td style="font-size:13px;color:var(--red);">'+fmt(ded)+'</td>'
+      +'<td style="font-weight:700;color:var(--accent);">'+fmt(net)+'</td>'
+      +'<td><span class="badge '+(p.paid?'b-green':'b-amber')+'">'+(p.paid?'Paid':'Pending')+'</span></td>'
+      +'<td><div style="display:flex;gap:5px;">'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="slip" title="View Payslip">🧾</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="edit" title="Edit">✏️</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="mark" title="'+(p.paid?'Unmark Paid':'Mark Paid')+'">'+(p.paid?'↩':'✅')+'</button>'
+      +'<button class="bic" data-pid="'+p.id+'" data-act="del" title="Delete">🗑️</button>'
+      +'</div></td></tr>';
+  }).join('');
+
+  document.querySelectorAll('[data-act="slip"]').forEach(function(b){ b.addEventListener('click',function(){ viewPayslip(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="edit"]').forEach(function(b){ b.addEventListener('click',function(){ openPayModal(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="mark"]').forEach(function(b){ b.addEventListener('click',function(){ togglePaid(this.dataset.pid); }); });
+  document.querySelectorAll('[data-act="del"]').forEach(function(b){ b.addEventListener('click',function(){ confirmDel(this.dataset.pid,'payroll','Delete this payroll record?'); }); });
+}
+
+function openPayModal(id) {
+  document.getElementById('F_PAY_ID').value = id||'';
+  document.getElementById('F_PAY_UID').value = '';
+  document.getElementById('F_PAY_MONTH').value = new Date().toISOString().slice(0,7);
+  ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){ document.getElementById(i).value=''; });
+  document.getElementById('F_PAY_NOTE').value = '';
+  document.getElementById('PAY_PREVIEW').style.display = 'none';
+  document.getElementById('M_PAY_TITLE').textContent = id ? 'Edit Payroll' : 'Assign Salary';
+  document.getElementById('BTN_SAVE_PAY').textContent = id ? 'Update Payroll' : 'Save Payroll';
+
+  /* Populate employee dropdown */
+  var sel = document.getElementById('F_PAY_EMP');
+  sel.innerHTML = '<option value="">Select employee…</option>';
+  staffList.forEach(function(s){
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = fname(s) + ' (' + (s.employeeID||s.id.slice(0,6)) + ')';
+    opt.dataset.name = fname(s);
+    opt.dataset.eid  = s.employeeID||'';
+    opt.dataset.uid  = s.uid||s.id;
+    sel.appendChild(opt);
+  });
+
+  if (id) {
+    var rec = payrollList.find(function(p){return p.id===id;});
+    if (rec) {
+      sel.value           = rec.employeeUID||'';
+      document.getElementById('F_PAY_MONTH').value   = rec.month||'';
+      document.getElementById('F_PAY_BASIC').value   = rec.basic||0;
+      document.getElementById('F_PAY_HOUSING').value = rec.housing||0;
+      document.getElementById('F_PAY_TRANS').value   = rec.transport||0;
+      document.getElementById('F_PAY_BONUS').value   = rec.bonus||0;
+      document.getElementById('F_PAY_TAX').value     = rec.tax||0;
+      document.getElementById('F_PAY_DEDUCT').value  = rec.deductions||0;
+      document.getElementById('F_PAY_NOTE').value    = rec.notes||'';
+      updatePayPreview();
+    }
+  }
+
+  /* Live preview on input */
+  ['F_PAY_BASIC','F_PAY_HOUSING','F_PAY_TRANS','F_PAY_BONUS','F_PAY_TAX','F_PAY_DEDUCT'].forEach(function(i){
+    document.getElementById(i).addEventListener('input', updatePayPreview);
+  });
+
+  openM('M_PAY');
+}
+
+function updatePayPreview() {
+  var basic    = parseFloat(document.getElementById('F_PAY_BASIC').value)||0;
+  var housing  = parseFloat(document.getElementById('F_PAY_HOUSING').value)||0;
+  var trans    = parseFloat(document.getElementById('F_PAY_TRANS').value)||0;
+  var bonus    = parseFloat(document.getElementById('F_PAY_BONUS').value)||0;
+  var tax      = parseFloat(document.getElementById('F_PAY_TAX').value)||0;
+  var deduct   = parseFloat(document.getElementById('F_PAY_DEDUCT').value)||0;
+  var gross = basic+housing+trans+bonus;
+  var ded   = tax+deduct;
+  var net   = gross-ded;
+  var prev = document.getElementById('PAY_PREVIEW');
+  if(gross>0) {
+    prev.style.display = 'block';
+    document.getElementById('PP_GROSS').textContent = fmt(gross);
+    document.getElementById('PP_DED').textContent   = fmt(ded);
+    document.getElementById('PP_NET').textContent   = fmt(net);
+  }
+}
+
+function savePayroll() {
+  var id     = document.getElementById('F_PAY_ID').value;
+  var sel    = document.getElementById('F_PAY_EMP');
+  var empOpt = sel.options[sel.selectedIndex];
+  var empId  = sel.value;
+  if(!empId){ toast('Select an employee','error'); return; }
+  var month   = document.getElementById('F_PAY_MONTH').value;
+  if(!month){ toast('Select a month','error'); return; }
+  var basic    = parseFloat(document.getElementById('F_PAY_BASIC').value)||0;
+  var housing  = parseFloat(document.getElementById('F_PAY_HOUSING').value)||0;
+  var transport= parseFloat(document.getElementById('F_PAY_TRANS').value)||0;
+  var bonus    = parseFloat(document.getElementById('F_PAY_BONUS').value)||0;
+  var tax      = parseFloat(document.getElementById('F_PAY_TAX').value)||0;
+  var deductions=parseFloat(document.getElementById('F_PAY_DEDUCT').value)||0;
+  var notes   = document.getElementById('F_PAY_NOTE').value.trim();
+  var gross   = basic+housing+transport+bonus;
+  var net     = gross-tax-deductions;
+
+  /* Find staff record to get uid */
+  var staff   = staffList.find(function(s){return s.id===empId;});
+  var empName = empOpt.dataset.name || (staff?fname(staff):'Unknown');
+  var empEID  = empOpt.dataset.eid  || (staff?staff.employeeID||'':'');
+  var empUID  = staff ? (staff.uid||staff.id) : empId;
+
+  var data = {employeeUID:empUID, employeeID:empEID, employeeName:empName, month:month, basic:basic, housing:housing, transport:transport, bonus:bonus, tax:tax, deductions:deductions, notes:notes, gross:gross, net:net, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  var btn = document.getElementById('BTN_SAVE_PAY');
+  btn.disabled=true; btn.textContent='Saving…';
+
+  var p = id ? db.collection('payroll').doc(id).update(data) : db.collection('payroll').add(Object.assign({paid:false,createdAt:firebase.firestore.FieldValue.serverTimestamp()},data));
+  p.then(function(){ toast(id?'Payroll updated':'Payroll saved','success'); closeM('M_PAY'); loadPayroll(); })
+   .catch(function(e){ toast('Error: '+e.message,'error'); })
+   .finally(function(){ btn.disabled=false; btn.textContent=id?'Update Payroll':'Save Payroll'; });
+}
+
+function togglePaid(id) {
+  var rec = payrollList.find(function(p){return p.id===id;}); if(!rec)return;
+  db.collection('payroll').doc(id).update({paid:!rec.paid}).then(function(){ loadPayroll(); toast(rec.paid?'Marked as pending':'Marked as paid','success'); }).catch(function(e){toast('Error: '+e.message,'error');});
+}
+
+function viewPayslip(id) {
+  var rec = payrollList.find(function(p){return p.id===id;}); if(!rec)return;
+  var gross = (rec.basic||0)+(rec.housing||0)+(rec.transport||0)+(rec.bonus||0);
+  var ded   = (rec.tax||0)+(rec.deductions||0);
+  var net   = gross-ded;
+  var body  = document.getElementById('PAYSLIP_BODY'); if(!body)return;
+  body.innerHTML = '<div class="pay-slip">'
+    +'<div class="pay-slip-header">'
+    +'<div class="pay-slip-logo">HRCore</div>'
+    +'<div class="pay-slip-title">Employee Payslip</div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:12px;font-size:13px;">'
+    +'<div><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Employee</div><b>'+rec.employeeName+'</b></div>'
+    +'<div style="text-align:right;"><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Employee ID</div><b>'+rec.employeeID+'</b></div>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px;">'
+    +'<div><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Pay Period</div><b>'+rec.month+'</b></div>'
+    +'<div style="text-align:right;"><div style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;">Status</div>'
+    +'<span class="badge '+(rec.paid?'b-green':'b-amber')+'">'+(rec.paid?'Paid':'Pending')+'</span></div>'
+    +'</div></div>'
+    +'<div class="pay-section-title">Earnings</div>'
+    +'<div class="pay-row"><span>Basic Salary</span><span class="pay-amt">'+fmt(rec.basic||0)+'</span></div>'
+    +(rec.housing?'<div class="pay-row"><span>Housing Allowance</span><span class="pay-amt">'+fmt(rec.housing)+'</span></div>':'')
+    +(rec.transport?'<div class="pay-row"><span>Transport Allowance</span><span class="pay-amt">'+fmt(rec.transport)+'</span></div>':'')
+    +(rec.bonus?'<div class="pay-row"><span>Bonus</span><span class="pay-amt" style="color:var(--green);">'+fmt(rec.bonus)+'</span></div>':'')
+    +'<div class="pay-row" style="font-weight:700;"><span>Gross Earnings</span><span class="pay-amt">'+fmt(gross)+'</span></div>'
+    +'<div class="pay-section-title">Deductions</div>'
+    +(rec.tax?'<div class="pay-row deduct"><span>Tax</span><span class="pay-amt">-'+fmt(rec.tax)+'</span></div>':'')
+    +(rec.deductions?'<div class="pay-row deduct"><span>Other Deductions</span><span class="pay-amt">-'+fmt(rec.deductions)+'</span></div>':'')
+    +(!rec.tax&&!rec.deductions?'<div class="pay-row"><span style="color:var(--muted);">No deductions</span><span class="pay-amt">'+fmt(0)+'</span></div>':'')
+    +'<div class="pay-row total"><span>NET SALARY</span><span class="pay-amt">'+fmt(net)+'</span></div>'
+    +(rec.notes?'<div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--muted);"><b>Notes:</b> '+rec.notes+'</div>':'')
+    +'<div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);text-align:center;">Generated by HRCore • '+new Date().toLocaleDateString('en-NG',{day:'numeric',month:'long',year:'numeric'})+'</div>'
+    +'</div>';
+  openM('M_PAYSLIP');
+}
+
+/* ================================================================
+   PAGE: PAYROLL DASHBOARD
+================================================================ */
+function pgPayrollDash() {
+  var pg = document.getElementById('PAGE');
+  var curMonth = new Date().toISOString().slice(0,7);
+  pg.innerHTML = '<div class="pf">'
+    +'<div class="sh"><div class="st">Payroll Dashboard</div>'
+    +'<input type="month" id="PDASH_MONTH" value="'+curMonth+'" style="padding:9px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;"/>'
+    +'</div>'
+    +'<div id="PDASH_CONTENT"><div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div></div>'
+    +'</div>';
+  document.getElementById('PDASH_MONTH').addEventListener('change', function(){ loadPayrollDash(this.value); });
+  loadPayrollDash(curMonth);
+}
+
+function loadPayrollDash(month) {
+  var el = document.getElementById('PDASH_CONTENT'); if(!el)return;
+  el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div>';
+  db.collection('payroll').where('month','==',month).limit(200).get().then(function(snap){
+    var records = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    var totalPayroll = records.reduce(function(sum,r){return sum+(r.net||0);},0);
+    var totalGross   = records.reduce(function(sum,r){return sum+(r.gross||0);},0);
+    var totalDed     = records.reduce(function(sum,r){return sum+(r.tax||0)+(r.deductions||0);},0);
+    var totalBonus   = records.reduce(function(sum,r){return sum+(r.bonus||0);},0);
+    var paidCount    = records.filter(function(r){return r.paid;}).length;
+    var pendingCount = records.length - paidCount;
+
+    el.innerHTML = ''
+      /* Summary cards */
+      +'<div class="pay-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:20px;">'
+      +'<div class="salary-card"><div class="salary-card-label">Total Payroll</div><div class="salary-card-amount">'+fmt(totalPayroll)+'</div><div class="salary-card-meta">Net · '+month+'</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--accent);">'+records.length+'</div><div class="pay-stat-label">Total Records</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--green);">'+paidCount+'</div><div class="pay-stat-label">Paid</div></div>'
+      +'<div class="pay-stat"><div class="pay-stat-num" style="color:var(--amber);">'+pendingCount+'</div><div class="pay-stat-label">Pending</div></div>'
+      +'</div>'
+      /* Breakdown card */
+      +'<div class="card cp" style="margin-bottom:16px;">'
+      +'<div class="ct" style="margin-bottom:16px;">Salary Breakdown — <span class="month-pill">'+month+'</span></div>'
+      +'<div class="pay-row"><span>Total Gross Earnings</span><span class="pay-amt">'+fmt(totalGross)+'</span></div>'
+      +'<div class="pay-row deduct"><span>Total Deductions</span><span class="pay-amt">-'+fmt(totalDed)+'</span></div>'
+      +'<div class="pay-row"><span>Total Bonuses Paid</span><span class="pay-amt" style="color:var(--green);">'+fmt(totalBonus)+'</span></div>'
+      +'<div class="pay-row total"><span>Total Net Payroll</span><span class="pay-amt">'+fmt(totalPayroll)+'</span></div>'
+      +'</div>'
+      /* Per-employee table */
+      +'<div class="card"><div class="ch"><div class="ct">Employee Salary Summary</div></div>'
+      +'<div class="tw"><table class="dt"><thead><tr><th>Employee</th><th>Gross</th><th>Deductions</th><th>Net Salary</th><th>Status</th></tr></thead><tbody>'
+      +(records.length?records.sort(function(a,b){return (b.net||0)-(a.net||0);}).map(function(r){
+        return '<tr>'
+          +'<td><b>'+r.employeeName+'</b><div style="font-size:11px;color:var(--muted);">'+(r.employeeID||'')+'</div></td>'
+          +'<td style="font-size:13px;">'+fmt(r.gross||0)+'</td>'
+          +'<td style="font-size:13px;color:var(--red);">-'+fmt((r.tax||0)+(r.deductions||0))+'</td>'
+          +'<td style="font-weight:700;color:var(--accent);">'+fmt(r.net||0)+'</td>'
+          +'<td><span class="badge '+(r.paid?'b-green':'b-amber')+'">'+(r.paid?'Paid':'Pending')+'</span></td>'
+          +'</tr>';
+      }).join(''):'<tr><td colspan="5"><div class="nd"><p>No payroll records for this month.</p></div></td></tr>')
+      +'</tbody></table></div></div>';
+  }).catch(function(e){ if(el)el.innerHTML='<div class="nd"><p style="color:var(--red);">Error: '+e.message+'</p></div>'; });
+}
+
+/* ================================================================
+   PAGE: MY PAYSLIPS (Employee)
+================================================================ */
+function pgMyPayslips() {
+  var pg = document.getElementById('PAGE');
+  pg.innerHTML = '<div class="pf">'
+    +'<div class="sh"><div class="st">My Payslips</div></div>'
+    +'<div id="MY_PAY_LIST"><div style="text-align:center;padding:40px;color:var(--muted);">Loading…</div></div>'
+    +'</div>';
+
+  db.collection('payroll').where('employeeUID','==',CU.uid).limit(50).get().then(function(snap){
+    var list = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    list.sort(function(a,b){return (b.month||'').localeCompare(a.month||'');});
+    var el = document.getElementById('MY_PAY_LIST'); if(!el)return;
+    if(!list.length){el.innerHTML='<div class="nd"><div class="nd-i">🧾</div><p>No payslips found yet.</p></div>';return;}
+
+    /* Summary card for latest month */
+    var latest = list[0];
+    var lNet = latest.net||0;
+    var lGross = latest.gross||0;
+    var lDed = (latest.tax||0)+(latest.deductions||0);
+
+    el.innerHTML = '<div class="salary-card" style="margin-bottom:20px;">'
+      +'<div class="salary-card-label">Latest Net Salary</div>'
+      +'<div class="salary-card-amount">'+fmt(lNet)+'</div>'
+      +'<div class="salary-card-meta">'+latest.month+' · '+(latest.paid?'✅ Paid':'⏳ Pending')+'</div>'
+      +'</div>'
+      +'<div class="card"><div class="ch"><div class="ct">Payslip History</div></div>'
+      +'<div class="tw"><table class="dt"><thead><tr><th>Month</th><th>Gross</th><th>Deductions</th><th>Net Salary</th><th>Status</th><th></th></tr></thead><tbody>'
+      +list.map(function(r){
+        var net   = r.net||(  (r.basic||0)+(r.housing||0)+(r.transport||0)+(r.bonus||0) - (r.tax||0)-(r.deductions||0));
+        var gross = r.gross||((r.basic||0)+(r.housing||0)+(r.transport||0)+(r.bonus||0));
+        var ded   = (r.tax||0)+(r.deductions||0);
+        return '<tr>'
+          +'<td><span class="month-pill">'+r.month+'</span></td>'
+          +'<td style="font-size:13px;">'+fmt(gross)+'</td>'
+          +'<td style="font-size:13px;color:var(--red);">-'+fmt(ded)+'</td>'
+          +'<td style="font-weight:700;color:var(--accent);">'+fmt(net)+'</td>'
+          +'<td><span class="badge '+(r.paid?'b-green':'b-amber')+'">'+(r.paid?'Paid':'Pending')+'</span></td>'
+          +'<td><button class="bic" data-psid="'+r.id+'" title="View Payslip">🧾 View</button></td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div></div>';
+
+    document.querySelectorAll('[data-psid]').forEach(function(b){
+      b.addEventListener('click', function(){
+        /* For employee view, fetch the payroll from staffList-populated payrollList or re-fetch */
+        db.collection('payroll').doc(this.dataset.psid).get().then(function(doc){
+          if(doc.exists){
+            var tmp = payrollList;
+            payrollList = [Object.assign({id:doc.id},doc.data())].concat(payrollList.filter(function(p){return p.id!==doc.id;}));
+            viewPayslip(doc.id);
+            payrollList = tmp;
+          }
+        });
+      });
+    });
+  }).catch(function(e){ var el=document.getElementById('MY_PAY_LIST'); if(el)el.innerHTML='<div class="nd"><p style="color:var(--red);">Error: '+e.message+'</p></div>'; });
+}
+
+/* ── Currency formatter ── */
+function fmt(n){
+  return '₦'+Number(n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+/* ── Wire payroll modal save button on boot ── */
+document.addEventListener('DOMContentLoaded', function(){
+  var bp = document.getElementById('BTN_SAVE_PAY');
+  if(bp) bp.addEventListener('click', savePayroll);
+});
+
 </script>
+
+<!-- Payroll: Assign/Edit salary modal -->
+<div class="mo" id="M_PAY">
+  <div class="md">
+    <div class="mh"><div class="mt" id="M_PAY_TITLE">Assign Salary</div><button class="mc" data-close="M_PAY">×</button></div>
+    <div class="mb">
+      <input type="hidden" id="F_PAY_UID"/>
+      <input type="hidden" id="F_PAY_ID"/>
+      <div class="field"><label>Employee</label><select id="F_PAY_EMP"><option value="">Select employee…</option></select></div>
+      <div class="field"><label>Month (YYYY-MM)</label><input type="month" id="F_PAY_MONTH"/></div>
+      <div class="fg2">
+        <div class="field"><label>Basic Salary (₦)</label><input type="number" id="F_PAY_BASIC" placeholder="0.00" min="0"/></div>
+        <div class="field"><label>Housing Allowance (₦)</label><input type="number" id="F_PAY_HOUSING" placeholder="0.00" min="0"/></div>
+      </div>
+      <div class="fg2">
+        <div class="field"><label>Transport Allowance (₦)</label><input type="number" id="F_PAY_TRANS" placeholder="0.00" min="0"/></div>
+        <div class="field"><label>Bonus (₦)</label><input type="number" id="F_PAY_BONUS" placeholder="0.00" min="0"/></div>
+      </div>
+      <div class="fg2">
+        <div class="field"><label>Tax Deduction (₦)</label><input type="number" id="F_PAY_TAX" placeholder="0.00" min="0"/></div>
+        <div class="field"><label>Other Deductions (₦)</label><input type="number" id="F_PAY_DEDUCT" placeholder="0.00" min="0"/></div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="F_PAY_NOTE" placeholder="Optional notes…"></textarea></div>
+      <div id="PAY_PREVIEW" style="background:var(--gl);border:1.5px solid var(--green);border-radius:10px;padding:14px;font-size:14px;display:none;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Gross Earnings:</span><b id="PP_GROSS" style="color:var(--green);"></b></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Total Deductions:</span><b id="PP_DED" style="color:var(--red);"></b></div>
+        <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:800;border-top:1.5px solid var(--green);padding-top:8px;margin-top:4px;"><span>Net Salary:</span><b id="PP_NET" style="color:var(--accent);"></b></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" data-close="M_PAY">Cancel</button>
+      <button class="btn btn-primary" id="BTN_SAVE_PAY">Save Payroll</button>
+    </div>
+  </div>
+</div>
+
+<!-- Payslip view modal -->
+<div class="mo" id="M_PAYSLIP">
+  <div class="md" style="max-width:620px;">
+    <div class="mh"><div class="mt">Payslip</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print</button>
+        <button class="mc" data-close="M_PAYSLIP">×</button>
+      </div>
+    </div>
+    <div class="mb" id="PAYSLIP_BODY"></div>
+  </div>
+</div>
+
 </body>
 </html>
