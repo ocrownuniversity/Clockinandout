@@ -577,12 +577,12 @@ function doLogin() {
   var enteredPin = pinVal;
 
   if (loginRole === 'admin') {
+    /* ── ADMIN: check PIN locally, then sign in via Firebase Auth ── */
     if (enteredPin !== ADMIN_PIN) {
       shakeDots();
       toast('Wrong PIN — try again', 'error');
       return;
     }
-    /* Correct admin PIN — sign into Firebase silently */
     auth.signInWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS)
       .catch(function(e) {
         if (e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'||e.code==='auth/wrong-password') {
@@ -596,26 +596,52 @@ function doLogin() {
       });
 
   } else {
-    /* Employee login */
+    /* ── EMPLOYEE: sign in as admin first to query Firestore, then switch ── */
     var email = (document.getElementById('EMP_EMAIL').value||'').trim().toLowerCase();
-    if (!email) { toast('Enter your email first','error'); pinVal=''; refreshDots(); return; }
+    if (!email) { toast('Enter your email address first','error'); pinVal=''; refreshDots(); return; }
 
-    db.collection('staff').where('email','==',email).limit(1).get()
+    /* Step 1: authenticate as admin so we have permission to read Firestore */
+    auth.signInWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS)
+      .catch(function(e) {
+        if (e.code==='auth/user-not-found'||e.code==='auth/invalid-credential'||e.code==='auth/wrong-password') {
+          return auth.createUserWithEmailAndPassword(ADMIN_EMAIL, ADMIN_PASS);
+        }
+        throw e;
+      })
+      .then(function() {
+        /* Step 2: now authenticated — query the staff record */
+        return db.collection('staff').where('email','==',email).limit(1).get();
+      })
       .then(function(snap) {
-        if (snap.empty) { shakeDots(); toast('No account for this email','error'); return; }
-        var emp = Object.assign({id:snap.docs[0].id}, snap.docs[0].data());
-        if (enteredPin !== (emp.pin||'0000')) { shakeDots(); toast('Wrong PIN','error'); return; }
-        var ep = emp.authPass||('HRCEmp_'+emp.id.slice(0,8));
-        return auth.signInWithEmailAndPassword(emp.email, ep)
-          .catch(function(e) {
-            if (e.code==='auth/user-not-found'||e.code==='auth/invalid-credential')
-              return auth.createUserWithEmailAndPassword(emp.email, ep);
-            throw e;
+        if (snap.empty) {
+          /* no staff record — sign out and show error */
+          return auth.signOut().then(function() {
+            shakeDots(); toast('No employee account found for this email','error');
           });
+        }
+        var emp = Object.assign({id:snap.docs[0].id}, snap.docs[0].data());
+        /* Step 3: verify PIN */
+        if (enteredPin !== (emp.pin||'0000')) {
+          return auth.signOut().then(function() {
+            shakeDots(); toast('Wrong PIN — try again','error');
+          });
+        }
+        /* Step 4: sign out admin, sign in as the actual employee */
+        var ep = emp.authPass || ('HRCEmp_' + emp.id.slice(0,8));
+        return auth.signOut().then(function() {
+          return auth.signInWithEmailAndPassword(emp.email, ep)
+            .catch(function(e) {
+              if (e.code==='auth/user-not-found'||e.code==='auth/invalid-credential') {
+                return auth.createUserWithEmailAndPassword(emp.email, ep);
+              }
+              throw e;
+            });
+        });
       })
       .catch(function(err) {
-        toast('Error: '+err.message,'error');
+        toast('Login error: '+err.message,'error');
         pinVal=''; refreshDots();
+        auth.signOut().catch(function(){});
       });
   }
 }
