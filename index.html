@@ -807,13 +807,15 @@ function pgDash() {
       sc('📋',pending,'Pending Leaves','purple');
 
     return Promise.all([
-      db.collection('attendance').where('date','==',today).orderBy('clockIn','desc').limit(8).get(),
-      db.collection('leaves').where('status','==','pending').orderBy('createdAt','desc').limit(5).get()
+      db.collection('attendance').where('date','==',today).limit(20).get(),
+      db.collection('leaves').where('status','==','pending').limit(10).get()
     ]);
   }).then(function(r2) {
     if(!r2) return;
     var dl=document.getElementById('DLOW'); if(!dl)return;
     var recAtt=r2[0].docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    recAtt.sort(function(a,b){return (b.clockIn||'').localeCompare(a.clockIn||'');});
+    recAtt=recAtt.slice(0,8);
     var pendLv=r2[1].docs.map(function(d){return Object.assign({id:d.id},d.data());});
     dl.innerHTML=
       '<div class="card"><div class="ch"><div class="ct">Today\'s Clock-Ins</div>'
@@ -836,7 +838,10 @@ function pgDash() {
         +'</div></div></div>';}).join('')
         :'<div class="nd"><div class="nd-i">📋</div><p>No pending requests.</p></div>')
       +'</div></div>';
-  }).catch(function(e){ toast('Dashboard error: '+e.message,'error'); });
+  }).catch(function(e){
+    var dl=document.getElementById('DLOW');
+    if(dl) dl.innerHTML='<div class="card cp"><p style="color:var(--muted);font-size:13px;">&#9888; Could not load section. Check Firestore rules.</p></div><div class="card cp"><p style="color:var(--muted);font-size:13px;">&#9888; Could not load section.</p></div>';
+  });
 }
 function sc(icon,num,lbl,col){return '<div class="sc"><div class="sc-i">'+icon+'</div><div class="sc-n '+col+'">'+num+'</div><div class="sc-l">'+lbl+'</div></div>';}
 
@@ -982,8 +987,9 @@ function loadAttData(){
   var date=(document.getElementById('ATT_DATE')||{value:ds()}).value;
   var tb=document.getElementById('ATT_BODY'); if(!tb)return;
   tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:28px;color:var(--muted);">Loading…</td></tr>';
-  db.collection('attendance').where('date','==',date).orderBy('clockIn','desc').get().then(function(snap){
+  db.collection('attendance').where('date','==',date).get().then(function(snap){
     attList=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    attList.sort(function(a,b){return (b.clockIn||'').localeCompare(a.clockIn||'');});
     filterAtt();
   });
 }
@@ -1087,10 +1093,11 @@ function clockIt(type){
 
 function loadMyHist(){
   var body=document.getElementById('MY_HIST'); if(!body)return;
-  db.collection('attendance').where('uid','==',CU.uid).orderBy('date','desc').limit(14).get().then(function(snap){
+  db.collection('attendance').where('uid','==',CU.uid).limit(30).get().then(function(snap){
     if(!body)return;
     if(snap.empty){body.innerHTML='<div class="nd"><div class="nd-i">📋</div><p>No records yet.</p></div>';return;}
-    body.innerHTML='<ul class="tl">'+snap.docs.map(function(doc){
+    var hdocs=snap.docs.slice().sort(function(a,b){return (b.data().date||'').localeCompare(a.data().date||'');});
+    body.innerHTML='<ul class="tl">'+hdocs.map(function(doc){
       var d=doc.data();
       return '<li class="tli"><div class="tld in">✓</div>'
         +'<div><div style="font-weight:600;font-size:14px;">'+fd(d.date)+(d.late?' <span class="late-tag" style="margin-left:6px;">LATE</span>':'')+'</div>'
@@ -1119,7 +1126,7 @@ function pgLeavesAdmin(){
     +'</select></div>'
     +'<div id="LV_LIST"></div></div>';
   document.getElementById('LV_FILTER').addEventListener('change', renderLeaveList);
-  var u=db.collection('leaves').orderBy('createdAt','desc').onSnapshot(function(snap){
+  var u=db.collection('leaves').limit(100).onSnapshot(function(snap){
     leaveList=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
     setbadge('lp',leaveList.filter(function(l){return l.status==='pending';}).length);
     renderLeaveList();
@@ -1130,6 +1137,11 @@ function renderLeaveList(){
   var status=(document.getElementById('LV_FILTER')||{value:'pending'}).value;
   var list=document.getElementById('LV_LIST'); if(!list)return;
   var filtered=status?leaveList.filter(function(l){return l.status===status;}):leaveList;
+  filtered=filtered.slice().sort(function(a,b){
+    var ta=a.createdAt&&a.createdAt.toMillis?a.createdAt.toMillis():0;
+    var tb2=b.createdAt&&b.createdAt.toMillis?b.createdAt.toMillis():0;
+    return tb2-ta;
+  });
   if(!filtered.length){list.innerHTML='<div class="nd"><div class="nd-i">📋</div><p>No requests found.</p></div>';return;}
   list.innerHTML=filtered.map(function(l){return '<div class="lc">'
     +'<div class="lci lt-'+l.leaveType+'">'+lei(l.leaveType)+'</div>'
@@ -1164,8 +1176,9 @@ function pgMyLeaves(){
     +'<button class="btn btn-primary" id="BTN_REQ_LEAVE">+ Request Leave</button></div>'
     +'<div id="MY_LV_LIST"></div></div>';
   document.getElementById('BTN_REQ_LEAVE').addEventListener('click',function(){ openM('M_LEAVE'); });
-  var u=db.collection('leaves').where('uid','==',CU.uid).orderBy('createdAt','desc').onSnapshot(function(snap){
+  var u=db.collection('leaves').where('uid','==',CU.uid).limit(50).onSnapshot(function(snap){
     var leaves=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    leaves.sort(function(a,b){var ta=a.createdAt&&a.createdAt.toMillis?a.createdAt.toMillis():0;var tb2=b.createdAt&&b.createdAt.toMillis?b.createdAt.toMillis():0;return tb2-ta;});
     var list=document.getElementById('MY_LV_LIST'); if(!list)return;
     if(!leaves.length){list.innerHTML='<div class="nd"><div class="nd-i">🌴</div><p>No leave requests yet.</p></div>';return;}
     list.innerHTML=leaves.map(function(l){return '<div class="lc">'
@@ -1310,9 +1323,10 @@ function pgSettings(){
    NOTIFICATIONS
 ================================================================ */
 function loadNotifs(){
-  db.collection('notifications').orderBy('createdAt','desc').limit(20).get()
+  db.collection('notifications').limit(20).get()
     .then(function(snap){
       notifList=snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+      notifList.sort(function(a,b){var ta=a.createdAt&&a.createdAt.toMillis?a.createdAt.toMillis():0;var tb2=b.createdAt&&b.createdAt.toMillis?b.createdAt.toMillis():0;return tb2-ta;});
       renderNotifs();
       var unread=notifList.filter(function(n){return !n.read;}).length;
       var dot=document.getElementById('NOTIF_DOT'); if(dot)dot.classList.toggle('hidden',unread===0);
